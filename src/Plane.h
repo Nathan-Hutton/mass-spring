@@ -10,10 +10,10 @@ class Plane
         {
             const std::vector<GLfloat> vertices
             {
-                -width, -width, 0.0f, 0.0f, 0.0f, 1.0f,
-                 width, -width, 0.0f, 0.0f, 0.0f, 1.0f,
-                -width,  width, 0.0f, 0.0f, 0.0f, 1.0f,
-                 width,  width, 0.0f, 0.0f, 0.0f, 1.0f
+                -width, -5.0f, -width, 0.0f, 0.0f, 1.0f,
+                 width, -5.0f, -width, 0.0f, 0.0f, 1.0f,
+                -width,  -5.0f, width, 0.0f, 0.0f, 1.0f,
+                 width,  -5.0f, width, 0.0f, 0.0f, 1.0f
             };
 
             GLuint planeVBO;

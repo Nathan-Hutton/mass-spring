@@ -76,7 +76,7 @@ int main(int argc, char* argv[])
 
     // Parameters to change light rotation
 	GLfloat zLightRotateAmount{ 0.0f };
-	GLfloat yLightRotateAmount{ 0.0f };
+	GLfloat yLightRotateAmount{ 45.0f };
 
     // Set uniform variables in shaders that won't change
     glUseProgram(mainShader);
@@ -138,7 +138,7 @@ int main(int argc, char* argv[])
         glUniformMatrix4fv(glGetUniformLocation(mainShader, "modelView"), 1, GL_FALSE, glm::value_ptr(modelViewTransform));
         glUniformMatrix4fv(glGetUniformLocation(mainShader, "normalModelView"), 1, GL_FALSE, glm::value_ptr(glm::transpose(glm::inverse(modelViewTransform))));
 		glUniform3fv(glGetUniformLocation(mainShader, "lightDir"), 1, glm::value_ptr(lightDirInViewSpace));
-        glUniform3fv(glGetUniformLocation(mainShader, "diffuseMaterialColor"), 1, glm::value_ptr(glm::vec3{ 1.0f, 1.0f, 1.0f }));
+        glUniform3fv(glGetUniformLocation(mainShader, "diffuseMaterialColor"), 1, glm::value_ptr(glm::vec3{ 0.0f, 0.5f, 0.0f }));
         plane.draw();
 
         glfwSwapBuffers(window);
