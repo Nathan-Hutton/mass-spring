@@ -12,6 +12,7 @@
 #include <string>
 #include <cmath>
 #include <vector>
+#include <array>
 
 #include "ShaderHandler.h"
 #include "Input.h"
@@ -134,10 +135,10 @@ int main()
         lastFrameTime = currentTime;
         
         //Physics
-        constexpr glm::vec3 gravity{ 0.0f, -10.f, 0.0f };
-        constexpr float stiffness{ 10.0f };
-        constexpr float restLen{ 5.0f };
-        constexpr float damping{ 0.1f };
+        constexpr glm::vec3 gravity{ 0.0f, -9.81f, 0.0f };
+        constexpr float stiffness{ 100.0f };
+        constexpr float restLen{ 10.0f };
+        constexpr float damping{ 0.4f };
         for (size_t i{ 0 }; i < 4; ++i)
         {
             if (points[i].fixed)
@@ -145,11 +146,11 @@ int main()
 
             points[i].force = gravity;
 
-            std::vector<size_t> connectedNodes;
+            std::array<size_t, 2> connectedNodes;
             if (i == 0) // Bottom left
                 connectedNodes = {1, 2};
             if (i == 1) // Bottom right
-                connectedNodes = {0, 4};
+                connectedNodes = {0, 3};
 
             for (size_t j : connectedNodes)
             {
@@ -157,6 +158,9 @@ int main()
                 const float differenceLen{ glm::length(difference) };
                 const glm::vec3 springForce{ -stiffness * (differenceLen - restLen) * glm::normalize(difference) };
                 points[i].force += springForce;
+
+                if (!points[j].fixed)
+                    points[j].force -= springForce;
             }
 
             points[i].force += -damping * points[i].velocity;
