@@ -71,22 +71,23 @@ int main()
 
     // Handle objects
     const CollisionPlane collisionPlane{ 10.0f, -5.0f };
-    std::vector<MassPoint> points(4);
+    std::array<MassPoint, 4> points{};
     points[0] = { glm::vec3{ -5.0f, -1.0f, 0.0f }, glm::vec3{ 0.0f }, glm::vec3{ 0.0f }, false }; // Bottom left
     points[1] = { glm::vec3{ 5.0f, -1.0f, 0.0f }, glm::vec3{ 0.0f }, glm::vec3{ 0.0f }, false }; // Bottom right
     points[2] = { glm::vec3{ -5.0f, 9.0f, 0.0f }, glm::vec3{ 0.0f }, glm::vec3{ 0.0f }, true }; // Top left
     points[3] = { glm::vec3{ 5.0f, 9.0f, 0.0f }, glm::vec3{ 0.0f }, glm::vec3{ 0.0f }, true }; // Top right
     GLuint planeVAO, planeVBO;
     {
-        std::vector<GLfloat> vertices;
+        size_t i{ 0 };
+        std::array<GLfloat, 24> vertices;
         for (const MassPoint& point : points)
         {
-            vertices.push_back(point.position.x);
-            vertices.push_back(point.position.y);
-            vertices.push_back(point.position.z);
-            vertices.push_back(0.0f);
-            vertices.push_back(0.0f);
-            vertices.push_back(1.0f);
+            vertices[i++] = point.position.x;
+            vertices[i++] = point.position.y;
+            vertices[i++] = point.position.z;
+            vertices[i++] = 0.0f;
+            vertices[i++] = 0.0f;
+            vertices[i++] = 1.0f;
         }
         glGenVertexArrays(1, &planeVAO);
 
@@ -179,15 +180,16 @@ int main()
         }
 
         // Update VBO
-        std::vector<GLfloat> vertices;
+        size_t i{ 0 };
+        std::array<GLfloat, 24> vertices;
         for (const MassPoint& point : points)
         {
-            vertices.push_back(point.position.x);
-            vertices.push_back(point.position.y);
-            vertices.push_back(point.position.z);
-            vertices.push_back(0.0f);
-            vertices.push_back(0.0f);
-            vertices.push_back(1.0f);
+            vertices[i++] = point.position.x;
+            vertices[i++] = point.position.y;
+            vertices[i++] = point.position.z;
+            vertices[i++] = 0.0f;
+            vertices[i++] = 0.0f;
+            vertices[i++] = 1.0f;
         }
 
         glBindBuffer(GL_ARRAY_BUFFER, planeVBO);
