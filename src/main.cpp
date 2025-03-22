@@ -17,7 +17,16 @@
 #include "Input.h"
 #include "Plane.h"
 
-int main(int argc, char* argv[])
+struct MassPoint
+{
+    glm::vec3 position;
+    glm::vec3 velocity;
+    glm::vec3 force;
+    bool fixed;
+};
+
+//int main(int argc, char* argv[])
+int main()
 {
     //if (argc < 2) // Since I want to just be able to ./main
     //{
@@ -60,7 +69,42 @@ int main(int argc, char* argv[])
     compileShaders();
 
     // Handle objects
-    const Plane plane{ 10.0f };
+    const CollisionPlane collisionPlane{ 10.0f, -5.0f };
+    std::vector<MassPoint> points(4);
+    points[0] = { glm::vec3{ -5.0f, 5.0f, -5.0f }, glm::vec3{ 0.0f, }, glm::vec3{ 0.0f }, false }; // Bottom left
+    points[1] = { glm::vec3{ 5.0f, 5.0f, -5.0f }, glm::vec3{ 0.0f, }, glm::vec3{ 0.0f }, false }; // Bottom right
+    points[2] = { glm::vec3{ -5.0f, 5.0f, 5.0f }, glm::vec3{ 0.0f, }, glm::vec3{ 0.0f }, true }; // Top left
+    points[3] = { glm::vec3{ 5.0f, 5.0f, 5.0f }, glm::vec3{ 0.0f, }, glm::vec3{ 0.0f }, true }; // Top right
+    GLuint planeVAO, planeVBO;
+    {
+        std::vector<GLfloat> vertices;
+        for (const MassPoint& point : points)
+        {
+            vertices.push_back(point.position.x);
+            vertices.push_back(point.position.y);
+            vertices.push_back(point.position.z);
+            vertices.push_back(0.0f);
+            vertices.push_back(0.0f);
+            vertices.push_back(1.0f);
+        }
+        glGenVertexArrays(1, &planeVAO);
+
+        glBindVertexArray(planeVAO);
+
+        glGenBuffers(1, &planeVBO);
+
+        glBindBuffer(GL_ARRAY_BUFFER, planeVBO);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * vertices.size(), vertices.data(), GL_STATIC_DRAW);
+
+        // Set vertex attributes
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(GLfloat), (void*)0); // Vertex positions
+        glEnableVertexAttribArray(0);
+
+        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(GLfloat), (void*)(sizeof(GLfloat) * 3)); // Vertex normals
+        glEnableVertexAttribArray(1);
+
+        glBindVertexArray(0);
+    }
 
     // ****************
     // Scene properties
@@ -88,6 +132,62 @@ int main(int argc, char* argv[])
         const GLfloat currentTime{ static_cast<GLfloat>(glfwGetTime()) };
         const GLfloat deltaTime{ currentTime - lastFrameTime };
         lastFrameTime = currentTime;
+        
+        //Physics
+        constexpr glm::vec3 gravity{ 0.0f, -10.f, 0.0f };
+        constexpr float stiffness{ 10.0f };
+        constexpr float restLen{ 5.0f };
+        constexpr float damping{ 0.1f };
+        for (size_t i{ 0 }; i < 4; ++i)
+        {
+            if (points[i].fixed)
+                continue;
+
+            points[i].force = gravity;
+
+            std::vector<size_t> connectedNodes;
+            if (i == 0) // Bottom left
+                connectedNodes = {1, 2};
+            if (i == 1) // Bottom right
+                connectedNodes = {0, 4};
+
+            for (size_t j : connectedNodes)
+            {
+                const glm::vec3 difference{ points[i].position - points[j].position };
+                const float differenceLen{ glm::length(difference) };
+                const glm::vec3 springForce{ -stiffness * (differenceLen - restLen) * glm::normalize(difference) };
+                points[i].force += springForce;
+            }
+
+            points[i].force += -damping * points[i].velocity;
+        }
+
+        // Integrate with explicit Euler
+        constexpr float mass{ 1.0f };
+        for (size_t i{ 0 }; i < 4; ++i)
+        {
+            if (points[i].fixed)
+                continue;
+
+            const glm::vec3 acceleration{ points[i].force / mass };
+            points[i].velocity += acceleration * deltaTime;
+            points[i].position += points[i].velocity * deltaTime;
+        }
+
+        // Update VBO
+        std::vector<GLfloat> vertices;
+        for (const MassPoint& point : points)
+        {
+            vertices.push_back(point.position.x);
+            vertices.push_back(point.position.y);
+            vertices.push_back(point.position.z);
+            vertices.push_back(0.0f);
+            vertices.push_back(0.0f);
+            vertices.push_back(1.0f);
+        }
+
+        glBindBuffer(GL_ARRAY_BUFFER, planeVBO);
+        glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(GLfloat) * vertices.size(), vertices.data());
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -139,7 +239,12 @@ int main(int argc, char* argv[])
         glUniformMatrix4fv(glGetUniformLocation(mainShader, "normalModelView"), 1, GL_FALSE, glm::value_ptr(glm::transpose(glm::inverse(modelViewTransform))));
 		glUniform3fv(glGetUniformLocation(mainShader, "lightDir"), 1, glm::value_ptr(lightDirInViewSpace));
         glUniform3fv(glGetUniformLocation(mainShader, "diffuseMaterialColor"), 1, glm::value_ptr(glm::vec3{ 0.0f, 0.5f, 0.0f }));
-        plane.draw();
+        collisionPlane.draw();
+
+        // Draw mass-spring plane
+        glUniform3fv(glGetUniformLocation(mainShader, "diffuseMaterialColor"), 1, glm::value_ptr(glm::vec3{ 0.0f, 0.0f, 1.0f }));
+        glBindVertexArray(planeVAO);
+        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
         glfwSwapBuffers(window);
         glfwPollEvents();

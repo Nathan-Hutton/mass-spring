@@ -3,17 +3,17 @@
 #include <GL/glew.h>
 #include <vector>
 
-class Plane
+class CollisionPlane
 {
     public:
-        Plane(float width)
+        CollisionPlane(float width, float worldHeight)
         {
             const std::vector<GLfloat> vertices
             {
-                -width, -5.0f, -width, 0.0f, 0.0f, 1.0f,
-                 width, -5.0f, -width, 0.0f, 0.0f, 1.0f,
-                -width,  -5.0f, width, 0.0f, 0.0f, 1.0f,
-                 width,  -5.0f, width, 0.0f, 0.0f, 1.0f
+                -width, worldHeight, -width, 0.0f, 0.0f, 1.0f,
+                 width, worldHeight, -width, 0.0f, 0.0f, 1.0f,
+                -width,  worldHeight, width, 0.0f, 0.0f, 1.0f,
+                 width,  worldHeight, width, 0.0f, 0.0f, 1.0f
             };
 
             GLuint planeVBO;
