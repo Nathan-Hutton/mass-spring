@@ -1,14 +1,14 @@
 #pragma once
 
 #include <GL/glew.h>
-#include <vector>
+#include <array>
 
 class CollisionPlane
 {
     public:
         CollisionPlane(float width, float worldHeight)
         {
-            const std::vector<GLfloat> vertices
+            const std::array<GLfloat, 24> vertices
             {
                 -width, worldHeight, -width, 0.0f, 1.0f, 0.0f,
                  width, worldHeight, -width, 0.0f, 1.0f, 0.0f,
