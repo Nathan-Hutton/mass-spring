@@ -71,10 +71,10 @@ int main()
     // Handle objects
     const CollisionPlane collisionPlane{ 10.0f, -5.0f };
     std::vector<MassPoint> points(4);
-    points[0] = { glm::vec3{ -5.0f, 5.0f, -5.0f }, glm::vec3{ 0.0f, }, glm::vec3{ 0.0f }, false }; // Bottom left
-    points[1] = { glm::vec3{ 5.0f, 5.0f, -5.0f }, glm::vec3{ 0.0f, }, glm::vec3{ 0.0f }, false }; // Bottom right
-    points[2] = { glm::vec3{ -5.0f, 5.0f, 5.0f }, glm::vec3{ 0.0f, }, glm::vec3{ 0.0f }, true }; // Top left
-    points[3] = { glm::vec3{ 5.0f, 5.0f, 5.0f }, glm::vec3{ 0.0f, }, glm::vec3{ 0.0f }, true }; // Top right
+    points[0] = { glm::vec3{ -5.0f, -1.0f, 0.0f }, glm::vec3{ 0.0f }, glm::vec3{ 0.0f }, false }; // Bottom left
+    points[1] = { glm::vec3{ 5.0f, -1.0f, 0.0f }, glm::vec3{ 0.0f }, glm::vec3{ 0.0f }, false }; // Bottom right
+    points[2] = { glm::vec3{ -5.0f, 9.0f, 0.0f }, glm::vec3{ 0.0f }, glm::vec3{ 0.0f }, true }; // Top left
+    points[3] = { glm::vec3{ 5.0f, 9.0f, 0.0f }, glm::vec3{ 0.0f }, glm::vec3{ 0.0f }, true }; // Top right
     GLuint planeVAO, planeVBO;
     {
         std::vector<GLfloat> vertices;
@@ -119,8 +119,8 @@ int main()
     GLfloat viewDistance{-30.0f};
 
     // Parameters to change light rotation
-	GLfloat zLightRotateAmount{ 0.0f };
-	GLfloat yLightRotateAmount{ 45.0f };
+	GLfloat zLightRotateAmount{ -45.0f };
+	GLfloat yLightRotateAmount{ 30.0f };
 
     // Set uniform variables in shaders that won't change
     glUseProgram(mainShader);

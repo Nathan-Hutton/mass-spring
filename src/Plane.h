@@ -10,10 +10,10 @@ class CollisionPlane
         {
             const std::vector<GLfloat> vertices
             {
-                -width, worldHeight, -width, 0.0f, 0.0f, 1.0f,
-                 width, worldHeight, -width, 0.0f, 0.0f, 1.0f,
-                -width,  worldHeight, width, 0.0f, 0.0f, 1.0f,
-                 width,  worldHeight, width, 0.0f, 0.0f, 1.0f
+                -width, worldHeight, -width, 0.0f, 1.0f, 0.0f,
+                 width, worldHeight, -width, 0.0f, 1.0f, 0.0f,
+                -width,  worldHeight, width, 0.0f, 1.0f, 0.0f,
+                 width,  worldHeight, width, 0.0f, 1.0f, 0.0f
             };
 
             GLuint planeVBO;
