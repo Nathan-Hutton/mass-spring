@@ -11,7 +11,7 @@ uniform mat4 projection;
 
 void main()
 {
-    posViewSpace = vec3(vec4(aPos, 1.0));
+    posViewSpace = vec3(modelView * vec4(aPos, 1.0));
 	fragPosVert = vec3(modelView * vec4(aPos, 1.0));
 
     gl_Position = projection * modelView * vec4(aPos, 1.0);

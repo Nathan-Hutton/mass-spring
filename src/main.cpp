@@ -146,8 +146,8 @@ int main()
     GLfloat viewDistance{-30.0f};
 
     // Parameters to change light rotation
-	GLfloat zLightRotateAmount{ 90.0f };
-	GLfloat yLightRotateAmount{ 0.0f };
+	GLfloat zLightRotateAmount{ 73.0f };
+	GLfloat yLightRotateAmount{ -45.0f };
 
     // Set uniform variables in shaders that won't change
     glUseProgram(mainShader);
@@ -294,8 +294,7 @@ int main()
 		glm::mat4 lightRotateMatrix { glm::rotate(glm::mat4{ 1.0f }, glm::radians(zLightRotateAmount), glm::vec3(0.0f, 0.0f, 1.0f)) };
 		lightRotateMatrix = glm::rotate(lightRotateMatrix, glm::radians(yLightRotateAmount), glm::vec3(0.0f, 1.0f, 0.0f));
         const glm::vec3 lightDir { glm::vec3{lightRotateMatrix * glm::vec4{1.0f, 0.0f, 0.0f, 0.0f}} };
-        std::cout << lightDir.x << ' ' << lightDir.y << ' ' << lightDir.z << '\n';
-        const glm::vec3 lightDirInViewSpace { -glm::normalize(view * glm::vec4(lightDir, 0.0f)) };
+        const glm::vec3 lightDirInViewSpace { glm::normalize(view * glm::vec4(lightDir, 0.0f)) };
 
         const glm::mat4 model{ 1.0f };
         const glm::mat4 modelViewTransform { view * model };

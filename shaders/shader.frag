@@ -23,6 +23,4 @@ void main()
     const vec3 specularComponent = pow(max(dot(halfVec, normal), 0.0f), 100.0f) * specularMaterialColor;
 
     fragColor = vec4(ambientColor + lightColor * (diffuseComponent + specularComponent), 1.0f);
-    //fragColor = vec4(normal * 0.5 + 0.5, 1.0);
-    //fragColor = vec4(normal, 1.0);
 }
