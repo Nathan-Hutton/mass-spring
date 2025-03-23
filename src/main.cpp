@@ -97,7 +97,7 @@ int main()
     GLuint planeVAO, planeVBO;
     {
         size_t i{ 0 };
-        std::array<GLfloat, 24> vertices;
+        std::array<GLfloat, points.size() * 6> vertices;
         for (const MassPoint& point : points)
         {
             vertices[i++] = point.position.x;
@@ -157,14 +157,13 @@ int main()
         
         //Physics
         constexpr glm::vec3 gravity{ 0.0f, -9.81f, 0.0f };
-        Eigen::VectorXf velocity(degreesOfFreedom);
         Eigen::VectorXf force(degreesOfFreedom);
         Eigen::MatrixXf stiffnessMatrix(degreesOfFreedom, degreesOfFreedom);
-        velocity.setZero();
         force.setZero();
         stiffnessMatrix.setZero();
 
-        for (size_t i{ 0 }; i < 4; ++i) {
+        Eigen::VectorXf velocity(degreesOfFreedom);
+        for (size_t i{ 0 }; i < points.size(); ++i) {
             velocity(3 * i + 0) = points[i].velocity.x;
             velocity(3 * i + 1) = points[i].velocity.y;
             velocity(3 * i + 2) = points[i].velocity.z;
@@ -173,7 +172,7 @@ int main()
 
         // Get forces from gravity
         constexpr float damping{ 0.4f };
-        for (size_t i{ 0 }; i < 4; ++i)
+        for (size_t i{ 0 }; i < points.size(); ++i)
         {
             if (points[i].fixed)
                 continue;
@@ -210,12 +209,12 @@ int main()
             stiffnessMatrix.block<3,3>(col, row) -= contribution;
         }
 
-        // Integrate with explicit Euler
         const Eigen::MatrixXf A{ Eigen::MatrixXf::Identity(degreesOfFreedom, degreesOfFreedom) - deltaTime * deltaTime * massMatrixInverse * stiffnessMatrix };
         const Eigen::VectorXf b{ velocity + deltaTime * massMatrixInverse * force };
         const Eigen::VectorXf vNext{ A.colPivHouseholderQr().solve(b) };
 
-        for (size_t i{ 0 }; i < 4; ++i)
+        // Set new values
+        for (size_t i{ 0 }; i < points.size(); ++i)
         {
             if (points[i].fixed)
                 continue;
@@ -228,7 +227,7 @@ int main()
 
         // Update VBO
         std::array<GLfloat, 24> vertices;
-        for (size_t i{ 0 }; i < 4; ++i)
+        for (size_t i{ 0 }; i < points.size(); ++i)
         {
             const MassPoint& point{ points[i] };
             vertices[i * 6    ] = point.position.x;

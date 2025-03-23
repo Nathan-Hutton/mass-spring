@@ -52,7 +52,7 @@ void linkShaders(GLuint& shaderProgram, const std::vector<std::string>& shaderPa
         char infoLog[512];
         glGetProgramInfoLog(shaderProgram, 512, NULL, infoLog);
         std::string errorString{"ERROR: SHADER LINKING FAILED for "};
-        for (std::string shaderPath : shaderPaths)
+        for (const std::string& shaderPath : shaderPaths)
             errorString += shaderPath + ", ";
         errorString += '\n' + infoLog + '\n';
         throw std::runtime_error(errorString);
@@ -102,5 +102,5 @@ void compileShader(GLuint& shaderProgram, const std::vector<std::string>& shader
 
 void compileShaders()
 {
-    compileShader(mainShader, std::vector<std::string>{"../shaders/shader.vert", "../shaders/shader.frag"});
+    compileShader(mainShader, std::vector<std::string>{"../shaders/shader.vert", "../shaders/shader.frag", "../shaders/shader.geom"});
 }
