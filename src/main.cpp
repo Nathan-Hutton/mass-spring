@@ -27,6 +27,13 @@ struct MassPoint
     bool fixed;
 };
 
+struct Spring
+{
+    size_t i, j;
+    float restLength;
+    float stiffness;
+};
+
 //int main(int argc, char* argv[])
 int main()
 {
@@ -77,6 +84,16 @@ int main()
     points[1] = { glm::vec3{ 5.0f, -1.0f, 0.0f }, glm::vec3{ 0.0f }, glm::vec3{ 0.0f }, false }; // Bottom right
     points[2] = { glm::vec3{ -5.0f, 9.0f, 0.0f }, glm::vec3{ 0.0f }, glm::vec3{ 0.0f }, true }; // Top left
     points[3] = { glm::vec3{ 5.0f, 9.0f, 0.0f }, glm::vec3{ 0.0f }, glm::vec3{ 0.0f }, true }; // Top right
+
+    constexpr float stiffness{ 100.0f };
+    std::array<Spring, 4> springs
+    {
+        Spring{0, 1, glm::length(points[0].position - points[1].position), stiffness},
+        Spring{0, 2, glm::length(points[0].position - points[2].position), stiffness},
+        Spring{1, 3, glm::length(points[1].position - points[3].position), stiffness},
+        Spring{2, 3, glm::length(points[2].position - points[3].position), stiffness}
+    };
+
     GLuint planeVAO, planeVBO;
     {
         size_t i{ 0 };
@@ -130,6 +147,8 @@ int main()
     glUniformMatrix4fv(glGetUniformLocation(mainShader, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
 
     GLfloat lastFrameTime{ static_cast<GLfloat>(glfwGetTime()) };
+    constexpr int degreesOfFreedom{ 12 };
+    const Eigen::MatrixXf massMatrixInverse{ Eigen::MatrixXf::Identity(degreesOfFreedom, degreesOfFreedom).inverse() };
     while (!glfwWindowShouldClose(window)) 
     {
         const GLfloat currentTime{ static_cast<GLfloat>(glfwGetTime()) };
@@ -138,59 +157,86 @@ int main()
         
         //Physics
         constexpr glm::vec3 gravity{ 0.0f, -9.81f, 0.0f };
-        constexpr float stiffness{ 100.0f };
-        constexpr float restLen{ 10.0f };
+        Eigen::VectorXf velocity(degreesOfFreedom);
+        Eigen::VectorXf force(degreesOfFreedom);
+        Eigen::MatrixXf stiffnessMatrix(degreesOfFreedom, degreesOfFreedom);
+        velocity.setZero();
+        force.setZero();
+        stiffnessMatrix.setZero();
+
+        for (size_t i{ 0 }; i < 4; ++i) {
+            velocity(3 * i + 0) = points[i].velocity.x;
+            velocity(3 * i + 1) = points[i].velocity.y;
+            velocity(3 * i + 2) = points[i].velocity.z;
+        }
+
+
+        // Get forces from gravity
         constexpr float damping{ 0.4f };
         for (size_t i{ 0 }; i < 4; ++i)
         {
             if (points[i].fixed)
                 continue;
 
-            points[i].force = gravity;
+            const glm::vec3 forceFromGravity{ gravity - damping * points[i].velocity };
+            force.segment<3>(3 * i) = Eigen::Vector3f(forceFromGravity.x, forceFromGravity.y, forceFromGravity.z);
+        }
 
-            std::array<size_t, 2> connectedNodes;
-            if (i == 0) // Bottom left
-                connectedNodes = {1, 2};
-            if (i == 1) // Bottom right
-                connectedNodes = {0, 3};
+        // Handle spring forces
+        for (const Spring& spring : springs)
+        {
+            const glm::vec3 diff{ points[spring.i].position - points[spring.j].position };
+            const Eigen::Vector3f d(diff.x, diff.y, diff.z);
+            const float len{ d.norm() };
+            if (len < 1e-5f)
+                continue;
 
-            for (size_t j : connectedNodes)
-            {
-                const glm::vec3 difference{ points[i].position - points[j].position };
-                const float differenceLen{ glm::length(difference) };
-                const glm::vec3 springForce{ -stiffness * (differenceLen - restLen) * glm::normalize(difference) };
-                points[i].force += springForce;
+            const Eigen::Vector3f dir{ d.normalized() };
+            const float stretch{ len - spring.restLength };
+            const Eigen::Vector3f springForce{ -spring.stiffness * stretch * dir };
 
-                if (!points[j].fixed)
-                    points[j].force -= springForce;
-            }
+            if (!points[spring.i].fixed)
+                force.segment<3>(3 * spring.i) += springForce;
+            if (!points[spring.j].fixed)
+                force.segment<3>(3 * spring.j) -= springForce;
 
-            points[i].force += -damping * points[i].velocity;
+            const Eigen::Matrix3f contribution{ spring.stiffness * (Eigen::Matrix3f::Identity() - (d * d.transpose()) / (len * len)) };
+
+            const size_t row{ spring.i * 3 };
+            const size_t col{ spring.j * 3 };
+            stiffnessMatrix.block<3,3>(row, row) += contribution;
+            stiffnessMatrix.block<3,3>(col, col) += contribution;
+            stiffnessMatrix.block<3,3>(row, col) -= contribution;
+            stiffnessMatrix.block<3,3>(col, row) -= contribution;
         }
 
         // Integrate with explicit Euler
-        constexpr float mass{ 1.0f };
+        const Eigen::MatrixXf A{ Eigen::MatrixXf::Identity(degreesOfFreedom, degreesOfFreedom) - deltaTime * deltaTime * massMatrixInverse * stiffnessMatrix };
+        const Eigen::VectorXf b{ velocity + deltaTime * massMatrixInverse * force };
+        const Eigen::VectorXf vNext{ A.colPivHouseholderQr().solve(b) };
+
         for (size_t i{ 0 }; i < 4; ++i)
         {
             if (points[i].fixed)
                 continue;
 
-            const glm::vec3 acceleration{ points[i].force / mass };
-            points[i].velocity += acceleration * deltaTime;
+            points[i].velocity.x = vNext(3 * i);
+            points[i].velocity.y = vNext(3 * i + 1);
+            points[i].velocity.z = vNext(3 * i + 2);
             points[i].position += points[i].velocity * deltaTime;
         }
 
         // Update VBO
-        size_t i{ 0 };
         std::array<GLfloat, 24> vertices;
-        for (const MassPoint& point : points)
+        for (size_t i{ 0 }; i < 4; ++i)
         {
-            vertices[i++] = point.position.x;
-            vertices[i++] = point.position.y;
-            vertices[i++] = point.position.z;
-            vertices[i++] = 0.0f;
-            vertices[i++] = 0.0f;
-            vertices[i++] = 1.0f;
+            const MassPoint& point{ points[i] };
+            vertices[i * 6    ] = point.position.x;
+            vertices[i * 6 + 1]= point.position.y;
+            vertices[i * 6 + 2] = point.position.z;
+            vertices[i * 6 + 3] = 0.0f;
+            vertices[i * 6 + 4] = 0.0f;
+            vertices[i * 6 + 5] = 1.0f;
         }
 
         glBindBuffer(GL_ARRAY_BUFFER, planeVBO);
