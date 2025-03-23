@@ -8,12 +8,25 @@ class CollisionPlane
     public:
         CollisionPlane(float width, float worldHeight)
         {
-            const std::array<GLfloat, 24> vertices
+            //const std::array<GLfloat, 18> vertices
+            //{
+            //    -width, worldHeight, -width, // Bottom left
+            //     width, worldHeight, -width, // Bottom right
+            //    -width,  worldHeight, width, // Top left
+
+            //     width, worldHeight, -width, // Bottom right
+            //     width,  worldHeight, width, // Top right
+            //    -width,  worldHeight, width  // Top left
+            //};
+            const std::array<GLfloat, 18> vertices
             {
-                -width, worldHeight, -width, 0.0f, 1.0f, 0.0f,
-                 width, worldHeight, -width, 0.0f, 1.0f, 0.0f,
-                -width,  worldHeight, width, 0.0f, 1.0f, 0.0f,
-                 width,  worldHeight, width, 0.0f, 1.0f, 0.0f
+                -width, worldHeight, width, // bottom left
+                 width, worldHeight, width, // bottom right
+                 width, worldHeight, -width, // top right
+
+                -width, worldHeight, width, // bottom left
+                 width, worldHeight, -width, // top right
+                -width, worldHeight, -width  // top left
             };
 
             GLuint planeVBO;
@@ -27,11 +40,8 @@ class CollisionPlane
             glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * vertices.size(), vertices.data(), GL_STATIC_DRAW);
 
             // Set vertex attributes
-            glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(GLfloat), (void*)0); // Vertex positions
+            glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), (void*)0); // Vertex positions
             glEnableVertexAttribArray(0);
-
-            glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(GLfloat), (void*)(sizeof(GLfloat) * 3)); // Vertex normals
-            glEnableVertexAttribArray(1);
 
             glBindVertexArray(0);
 
@@ -40,7 +50,7 @@ class CollisionPlane
         void draw() const
         {
             glBindVertexArray(m_VAO);
-            glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+            glDrawArrays(GL_TRIANGLES, 0, 6);
         }
 
     private:

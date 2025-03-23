@@ -96,17 +96,27 @@ int main()
 
     GLuint planeVAO, planeVBO;
     {
-        size_t i{ 0 };
-        std::array<GLfloat, points.size() * 6> vertices;
-        for (const MassPoint& point : points)
-        {
-            vertices[i++] = point.position.x;
-            vertices[i++] = point.position.y;
-            vertices[i++] = point.position.z;
-            vertices[i++] = 0.0f;
-            vertices[i++] = 0.0f;
-            vertices[i++] = 1.0f;
-        }
+        std::array<GLfloat, 18> vertices;
+        vertices[0] = points[0].position.x;
+        vertices[1] = points[0].position.y;
+        vertices[2] = points[0].position.z;
+        vertices[3] = points[1].position.x;
+        vertices[4] = points[1].position.y;
+        vertices[5] = points[1].position.z;
+        vertices[6] = points[3].position.x;
+        vertices[7] = points[3].position.y;
+        vertices[8] = points[3].position.z;
+
+        vertices[9] = points[0].position.x;
+        vertices[10] = points[0].position.y;
+        vertices[11] = points[0].position.z;
+        vertices[12] = points[3].position.x;
+        vertices[13] = points[3].position.y;
+        vertices[14] = points[3].position.z;
+        vertices[15] = points[2].position.x;
+        vertices[16] = points[2].position.y;
+        vertices[17] = points[2].position.z;
+
         glGenVertexArrays(1, &planeVAO);
 
         glBindVertexArray(planeVAO);
@@ -117,11 +127,8 @@ int main()
         glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * vertices.size(), vertices.data(), GL_STATIC_DRAW);
 
         // Set vertex attributes
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(GLfloat), (void*)0); // Vertex positions
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), (void*)0); // Vertex positions
         glEnableVertexAttribArray(0);
-
-        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(GLfloat), (void*)(sizeof(GLfloat) * 3)); // Vertex normals
-        glEnableVertexAttribArray(1);
 
         glBindVertexArray(0);
     }
@@ -139,8 +146,8 @@ int main()
     GLfloat viewDistance{-30.0f};
 
     // Parameters to change light rotation
-	GLfloat zLightRotateAmount{ -45.0f };
-	GLfloat yLightRotateAmount{ 30.0f };
+	GLfloat zLightRotateAmount{ 90.0f };
+	GLfloat yLightRotateAmount{ 0.0f };
 
     // Set uniform variables in shaders that won't change
     glUseProgram(mainShader);
@@ -226,17 +233,26 @@ int main()
         }
 
         // Update VBO
-        std::array<GLfloat, 24> vertices;
-        for (size_t i{ 0 }; i < points.size(); ++i)
-        {
-            const MassPoint& point{ points[i] };
-            vertices[i * 6    ] = point.position.x;
-            vertices[i * 6 + 1]= point.position.y;
-            vertices[i * 6 + 2] = point.position.z;
-            vertices[i * 6 + 3] = 0.0f;
-            vertices[i * 6 + 4] = 0.0f;
-            vertices[i * 6 + 5] = 1.0f;
-        }
+        std::array<GLfloat, 18> vertices;
+        vertices[0] = points[0].position.x;
+        vertices[1] = points[0].position.y;
+        vertices[2] = points[0].position.z;
+        vertices[3] = points[1].position.x;
+        vertices[4] = points[1].position.y;
+        vertices[5] = points[1].position.z;
+        vertices[6] = points[2].position.x;
+        vertices[7] = points[2].position.y;
+        vertices[8] = points[2].position.z;
+
+        vertices[9] = points[1].position.x;
+        vertices[10] = points[1].position.y;
+        vertices[11] = points[1].position.z;
+        vertices[12] = points[3].position.x;
+        vertices[13] = points[3].position.y;
+        vertices[14] = points[3].position.z;
+        vertices[15] = points[2].position.x;
+        vertices[16] = points[2].position.y;
+        vertices[17] = points[2].position.z;
 
         glBindBuffer(GL_ARRAY_BUFFER, planeVBO);
         glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(GLfloat) * vertices.size(), vertices.data());
@@ -278,6 +294,7 @@ int main()
 		glm::mat4 lightRotateMatrix { glm::rotate(glm::mat4{ 1.0f }, glm::radians(zLightRotateAmount), glm::vec3(0.0f, 0.0f, 1.0f)) };
 		lightRotateMatrix = glm::rotate(lightRotateMatrix, glm::radians(yLightRotateAmount), glm::vec3(0.0f, 1.0f, 0.0f));
         const glm::vec3 lightDir { glm::vec3{lightRotateMatrix * glm::vec4{1.0f, 0.0f, 0.0f, 0.0f}} };
+        std::cout << lightDir.x << ' ' << lightDir.y << ' ' << lightDir.z << '\n';
         const glm::vec3 lightDirInViewSpace { -glm::normalize(view * glm::vec4(lightDir, 0.0f)) };
 
         const glm::mat4 model{ 1.0f };
@@ -285,8 +302,6 @@ int main()
 
         // Render object to screen
         glUseProgram(mainShader);
-        glUniformMatrix4fv(glGetUniformLocation(mainShader, "model"), 1, GL_FALSE, glm::value_ptr(model));
-        glUniformMatrix4fv(glGetUniformLocation(mainShader, "view"), 1, GL_FALSE, glm::value_ptr(view));
         glUniformMatrix4fv(glGetUniformLocation(mainShader, "modelView"), 1, GL_FALSE, glm::value_ptr(modelViewTransform));
         glUniformMatrix4fv(glGetUniformLocation(mainShader, "normalModelView"), 1, GL_FALSE, glm::value_ptr(glm::transpose(glm::inverse(modelViewTransform))));
 		glUniform3fv(glGetUniformLocation(mainShader, "lightDir"), 1, glm::value_ptr(lightDirInViewSpace));
@@ -296,7 +311,7 @@ int main()
         // Draw mass-spring plane
         glUniform3fv(glGetUniformLocation(mainShader, "diffuseMaterialColor"), 1, glm::value_ptr(glm::vec3{ 0.0f, 0.0f, 1.0f }));
         glBindVertexArray(planeVAO);
-        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+        glDrawArrays(GL_TRIANGLES, 0, 6);
 
         glfwSwapBuffers(window);
         glfwPollEvents();
