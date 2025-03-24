@@ -8,25 +8,12 @@ class CollisionPlane
     public:
         CollisionPlane(float width, float worldHeight)
         {
-            //const std::array<GLfloat, 18> vertices
-            //{
-            //    -width, worldHeight, -width, // Bottom left
-            //     width, worldHeight, -width, // Bottom right
-            //    -width,  worldHeight, width, // Top left
-
-            //     width, worldHeight, -width, // Bottom right
-            //     width,  worldHeight, width, // Top right
-            //    -width,  worldHeight, width  // Top left
-            //};
-            const std::array<GLfloat, 18> vertices
+            const std::array<GLfloat, 12> vertices
             {
-                -width, worldHeight, width, // bottom left
-                 width, worldHeight, width, // bottom right
-                 width, worldHeight, -width, // top right
-
-                -width, worldHeight, width, // bottom left
-                 width, worldHeight, -width, // top right
-                -width, worldHeight, -width  // top left
+                -width, worldHeight, width,   // bottom left
+                 width, worldHeight, width,   // bottom right
+                -width, worldHeight, -width,  // top left
+                 width, worldHeight, -width   // top right
             };
 
             GLuint planeVBO;
@@ -50,7 +37,7 @@ class CollisionPlane
         void draw() const
         {
             glBindVertexArray(m_VAO);
-            glDrawArrays(GL_TRIANGLES, 0, 6);
+            glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
         }
 
     private:

@@ -96,26 +96,13 @@ int main()
 
     GLuint planeVAO, planeVBO;
     {
-        std::array<GLfloat, 18> vertices;
-        vertices[0] = points[0].position.x;
-        vertices[1] = points[0].position.y;
-        vertices[2] = points[0].position.z;
-        vertices[3] = points[1].position.x;
-        vertices[4] = points[1].position.y;
-        vertices[5] = points[1].position.z;
-        vertices[6] = points[3].position.x;
-        vertices[7] = points[3].position.y;
-        vertices[8] = points[3].position.z;
-
-        vertices[9] = points[0].position.x;
-        vertices[10] = points[0].position.y;
-        vertices[11] = points[0].position.z;
-        vertices[12] = points[3].position.x;
-        vertices[13] = points[3].position.y;
-        vertices[14] = points[3].position.z;
-        vertices[15] = points[2].position.x;
-        vertices[16] = points[2].position.y;
-        vertices[17] = points[2].position.z;
+        std::array<GLfloat, 12> vertices{};
+        for (size_t i{ 0 }; i < 4; ++i)
+        {
+            vertices[i * 3] = points[i].position.x;
+            vertices[i * 3 + 1] = points[i].position.y;
+            vertices[i * 3 + 2] = points[i].position.z;
+        }
 
         glGenVertexArrays(1, &planeVAO);
 
@@ -233,26 +220,13 @@ int main()
         }
 
         // Update VBO
-        std::array<GLfloat, 18> vertices;
-        vertices[0] = points[0].position.x;
-        vertices[1] = points[0].position.y;
-        vertices[2] = points[0].position.z;
-        vertices[3] = points[1].position.x;
-        vertices[4] = points[1].position.y;
-        vertices[5] = points[1].position.z;
-        vertices[6] = points[2].position.x;
-        vertices[7] = points[2].position.y;
-        vertices[8] = points[2].position.z;
-
-        vertices[9] = points[1].position.x;
-        vertices[10] = points[1].position.y;
-        vertices[11] = points[1].position.z;
-        vertices[12] = points[3].position.x;
-        vertices[13] = points[3].position.y;
-        vertices[14] = points[3].position.z;
-        vertices[15] = points[2].position.x;
-        vertices[16] = points[2].position.y;
-        vertices[17] = points[2].position.z;
+        std::array<GLfloat, 12> vertices{};
+        for (size_t i{ 0 }; i < 4; ++i)
+        {
+            vertices[i * 3] = points[i].position.x;
+            vertices[i * 3 + 1] = points[i].position.y;
+            vertices[i * 3 + 2] = points[i].position.z;
+        }
 
         glBindBuffer(GL_ARRAY_BUFFER, planeVBO);
         glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(GLfloat) * vertices.size(), vertices.data());
@@ -310,7 +284,7 @@ int main()
         // Draw mass-spring plane
         glUniform3fv(glGetUniformLocation(mainShader, "diffuseMaterialColor"), 1, glm::value_ptr(glm::vec3{ 0.0f, 0.0f, 1.0f }));
         glBindVertexArray(planeVAO);
-        glDrawArrays(GL_TRIANGLES, 0, 6);
+        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
         glfwSwapBuffers(window);
         glfwPollEvents();
