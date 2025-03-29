@@ -72,6 +72,28 @@ class MassSpringPlane
                 }
             }
 
+            m_degreesOfFreedom = m_points.size() * 3;
+            //m_massMatrixInverse = Eigen::MatrixXf::Identity(m_degreesOfFreedom, m_degreesOfFreedom).inverse(); // Using identity since every point's mass = 1
+            //m_stiffnessMatrix.resize(m_degreesOfFreedom, m_degreesOfFreedom);
+
+            // Set sparsity pattern for A
+            {
+                Eigen::SparseMatrix<float> stiffnessMatrix{ m_degreesOfFreedom, m_degreesOfFreedom };
+                stiffnessMatrix.setZero();
+                m_A.resize(m_degreesOfFreedom, m_degreesOfFreedom);
+                std::vector<Eigen::Triplet<float>> dummyTriplets;
+                Eigen::VectorXf force(m_degreesOfFreedom);
+                force.setZero();
+                Physics::handleSpringForces(m_springs, m_points, force, dummyTriplets);
+                stiffnessMatrix.setFromTriplets(dummyTriplets.begin(), dummyTriplets.end());
+                m_A.setIdentity();
+                m_A -= 0.01f * 0.01f * stiffnessMatrix;
+                const float epsilon = 1e-5f + 0.01f * m_stiffness * 0.1f;
+                m_A += epsilon * Eigen::MatrixXf::Identity(m_degreesOfFreedom, m_degreesOfFreedom).sparseView();
+
+                m_solver.analyzePattern(m_A);
+            }
+
             // Handle indices
             for (size_t j{ 0 }; j < resolution; ++j)
             {
@@ -92,9 +114,7 @@ class MassSpringPlane
                 }
             }
 
-            m_degreesOfFreedom = m_points.size() * 3;
-            m_massMatrixInverse = Eigen::MatrixXf::Identity(m_degreesOfFreedom, m_degreesOfFreedom).inverse(); // Using identity since every point's mass = 1
-
+            // Setup VAO
             glGenVertexArrays(1, &m_VAO);
 
             glBindVertexArray(m_VAO);
@@ -133,9 +153,8 @@ class MassSpringPlane
         void updatePhysics(float deltaTime)
         {
             Eigen::VectorXf force(m_degreesOfFreedom);
-            //Eigen::MatrixXf stiffnessMatrix(m_degreesOfFreedom, m_degreesOfFreedom);
             force.setZero();
-            //stiffnessMatrix.setZero();
+            //m_stiffnessMatrix.setZero();
 
             Eigen::VectorXf velocity(m_degreesOfFreedom);
             for (size_t i{ 0 }; i < m_points.size(); ++i) {
@@ -145,31 +164,31 @@ class MassSpringPlane
             }
 
             Physics::getForceFromGravity(m_points, force);
+
+            //Eigen::SparseMatrix<float> A{ m_degreesOfFreedom, m_degreesOfFreedom };
+            const float epsilon{ 1e-5f + 0.01f * m_stiffness * 0.1f };
+            for (int k = 0; k < m_A.outerSize(); ++k)
+                for (Eigen::SparseMatrix<float>::InnerIterator it(m_A, k); it; ++it)
+                    it.valueRef() = 0.0f;
+
+            for (int i{ 0 }; i < m_degreesOfFreedom; ++i)
+                m_A.coeffRef(i, i) = 1.0f + epsilon;
+
             std::vector<Eigen::Triplet<float>> stiffnessTriplets;
             Physics::handleSpringForces(m_springs, m_points, force, stiffnessTriplets);
-            Eigen::SparseMatrix<float> stiffnessMatrix{ m_degreesOfFreedom, m_degreesOfFreedom };
-            stiffnessMatrix.setFromTriplets(stiffnessTriplets.begin(), stiffnessTriplets.end());
+            //m_stiffnessMatrix.setFromTriplets(stiffnessTriplets.begin(), stiffnessTriplets.end());
+            for (const auto& triplet : stiffnessTriplets)
+                m_A.coeffRef(triplet.row(), triplet.col()) -= (deltaTime * deltaTime) * triplet.value();
 
-            // I commented this line and the b calculation line out since m_massMatrixInverse is just identity
-            //Eigen::MatrixXf A{ Eigen::MatrixXf::Identity(m_degreesOfFreedom, m_degreesOfFreedom) - deltaTime * deltaTime * m_massMatrixInverse * stiffnessMatrix };
-            //Eigen::MatrixXf A{ Eigen::MatrixXf::Identity(m_degreesOfFreedom, m_degreesOfFreedom) - deltaTime * deltaTime * stiffnessMatrix };
-            Eigen::SparseMatrix<float> A{ m_degreesOfFreedom, m_degreesOfFreedom };
-            A.setIdentity();
-            A -= deltaTime * deltaTime * stiffnessMatrix;
-            const float epsilon = 1e-5f + 0.01f * m_stiffness * 0.1f;
-            A += epsilon * Eigen::MatrixXf::Identity(m_degreesOfFreedom, m_degreesOfFreedom).sparseView(); // Regularization
-            //const Eigen::VectorXf b{ velocity + deltaTime * m_massMatrixInverse * force };
+            //A -= deltaTime * deltaTime * m_stiffnessMatrix;
+            //A += epsilon * Eigen::MatrixXf::Identity(m_degreesOfFreedom, m_degreesOfFreedom).sparseView(); // Regularization
+                                                                                                           //
+            m_solver.factorize(m_A);
             const Eigen::VectorXf b{ velocity + deltaTime * force };
-
-            Eigen::SimplicialLDLT<Eigen::SparseMatrix<float>> solver;
-            solver.compute(A);
-            //const Eigen::VectorXf vNext{ A.ldlt().solve(b) };
-            const Eigen::VectorXf vNext{ solver.solve(b) };
+            const Eigen::VectorXf vNext{ m_solver.solve(b) };
 
             // Set new values
             Physics::setNewPoints(m_points, vNext, deltaTime);
-
-            // Update VBO
             updateVBO();
         }
 
@@ -185,7 +204,10 @@ class MassSpringPlane
         std::vector<Physics::Spring> m_springs{};
         std::vector<GLfloat> m_vertices{};
         std::vector<GLuint> m_indices{};
-        Eigen::MatrixXf m_massMatrixInverse{};
+        //Eigen::MatrixXf m_massMatrixInverse{};
         int m_degreesOfFreedom{};
-        float m_stiffness{ 50.0f };
+        float m_stiffness{ 100.0f };
+        //Eigen::SparseMatrix<float> m_stiffnessMatrix;
+        Eigen::SparseMatrix<float> m_A;
+        Eigen::SimplicialLDLT<Eigen::SparseMatrix<float>> m_solver;
 };
