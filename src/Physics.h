@@ -88,8 +88,14 @@ namespace Physics
             points[i].velocity.x = vNext(3 * i);
             points[i].velocity.y = vNext(3 * i + 1);
             points[i].velocity.z = vNext(3 * i + 2);
-            points[i].position += points[i].velocity * deltaTime;
             points[i].velocity *= 0.98f;
+            const float speed{ glm::length(points[i].velocity) };
+            if (speed > 1.0f)
+                points[i].velocity *= 1.0f / speed;
+
+            points[i].position += points[i].velocity * deltaTime;
+            if (points[i].position.y < -8.0f)
+                points[i].position.y = -8.0f;
         }
     }
 }
