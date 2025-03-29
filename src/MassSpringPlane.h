@@ -133,9 +133,9 @@ class MassSpringPlane
         void updatePhysics(float deltaTime)
         {
             Eigen::VectorXf force(m_degreesOfFreedom);
-            Eigen::MatrixXf stiffnessMatrix(m_degreesOfFreedom, m_degreesOfFreedom);
+            //Eigen::MatrixXf stiffnessMatrix(m_degreesOfFreedom, m_degreesOfFreedom);
             force.setZero();
-            stiffnessMatrix.setZero();
+            //stiffnessMatrix.setZero();
 
             Eigen::VectorXf velocity(m_degreesOfFreedom);
             for (size_t i{ 0 }; i < m_points.size(); ++i) {
@@ -145,16 +145,26 @@ class MassSpringPlane
             }
 
             Physics::getForceFromGravity(m_points, force);
-            Physics::handleSpringForces(m_springs, m_points, force, stiffnessMatrix);
+            std::vector<Eigen::Triplet<float>> stiffnessTriplets;
+            Physics::handleSpringForces(m_springs, m_points, force, stiffnessTriplets);
+            Eigen::SparseMatrix<float> stiffnessMatrix{ m_degreesOfFreedom, m_degreesOfFreedom };
+            stiffnessMatrix.setFromTriplets(stiffnessTriplets.begin(), stiffnessTriplets.end());
 
             // I commented this line and the b calculation line out since m_massMatrixInverse is just identity
             //Eigen::MatrixXf A{ Eigen::MatrixXf::Identity(m_degreesOfFreedom, m_degreesOfFreedom) - deltaTime * deltaTime * m_massMatrixInverse * stiffnessMatrix };
-            Eigen::MatrixXf A{ Eigen::MatrixXf::Identity(m_degreesOfFreedom, m_degreesOfFreedom) - deltaTime * deltaTime * stiffnessMatrix };
+            //Eigen::MatrixXf A{ Eigen::MatrixXf::Identity(m_degreesOfFreedom, m_degreesOfFreedom) - deltaTime * deltaTime * stiffnessMatrix };
+            Eigen::SparseMatrix<float> A{ m_degreesOfFreedom, m_degreesOfFreedom };
+            A.setIdentity();
+            A -= deltaTime * deltaTime * stiffnessMatrix;
             const float epsilon = 1e-5f + 0.01f * m_stiffness * 0.1f;
-            A += epsilon * Eigen::MatrixXf::Identity(m_degreesOfFreedom, m_degreesOfFreedom); // Regularization
+            A += epsilon * Eigen::MatrixXf::Identity(m_degreesOfFreedom, m_degreesOfFreedom).sparseView(); // Regularization
             //const Eigen::VectorXf b{ velocity + deltaTime * m_massMatrixInverse * force };
             const Eigen::VectorXf b{ velocity + deltaTime * force };
-            const Eigen::VectorXf vNext{ A.ldlt().solve(b) };
+
+            Eigen::SimplicialLDLT<Eigen::SparseMatrix<float>> solver;
+            solver.compute(A);
+            //const Eigen::VectorXf vNext{ A.ldlt().solve(b) };
+            const Eigen::VectorXf vNext{ solver.solve(b) };
 
             // Set new values
             Physics::setNewPoints(m_points, vNext, deltaTime);

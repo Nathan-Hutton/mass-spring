@@ -5,6 +5,7 @@
 #include <glm/gtx/orthonormalize.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <Eigen/Dense>
+#include <Eigen/Sparse>
 #include <vector>
 
 namespace Physics
@@ -38,15 +39,18 @@ namespace Physics
         }
     }
 
-    void handleSpringForces(const std::vector<Spring>& springs, const std::vector<MassPoint>& points, Eigen::VectorXf& force, Eigen::MatrixXf& stiffnessMatrix)
+    void handleSpringForces(
+        const std::vector<Spring>& springs,
+        const std::vector<MassPoint>& points,
+        Eigen::VectorXf& force,
+        std::vector<Eigen::Triplet<float>>& stiffnessTriplets)
     {
         for (const Physics::Spring& spring : springs)
         {
             const glm::vec3 diff{ points[spring.i].position - points[spring.j].position };
             const Eigen::Vector3f d(diff.x, diff.y, diff.z);
             const float len{ d.norm() };
-            if (len < 1e-5f)
-                continue;
+            if (len < 1e-5f) continue;
 
             const Eigen::Vector3f dir{ d.normalized() };
             const float stretch{ len - spring.restLength };
@@ -69,12 +73,19 @@ namespace Physics
 
             const Eigen::Matrix3f contribution{ spring.stiffness * (Eigen::Matrix3f::Identity() - (d * d.transpose()) / (len * len)) };
 
-            const size_t row{ spring.i * 3 };
-            const size_t col{ spring.j * 3 };
-            stiffnessMatrix.block<3,3>(row, row) += contribution;
-            stiffnessMatrix.block<3,3>(col, col) += contribution;
-            stiffnessMatrix.block<3,3>(row, col) -= contribution;
-            stiffnessMatrix.block<3,3>(col, row) -= contribution;
+            const size_t iBase{ 3 * spring.i };
+            const size_t jBase{ 3 * spring.j };
+            for (size_t row{ 0 }; row < 3; ++row)
+            {
+                for (size_t col{ 0 }; col < 3; ++col)
+                {
+                    const float val{ contribution(row, col) };
+                    stiffnessTriplets.emplace_back(iBase + row, iBase + col, val);
+                    stiffnessTriplets.emplace_back(jBase + row, jBase + col, val);
+                    stiffnessTriplets.emplace_back(iBase + row, jBase + col, -val);
+                    stiffnessTriplets.emplace_back(jBase + row, iBase + col, -val);
+                }
+            }
         }
     }
 
@@ -94,8 +105,8 @@ namespace Physics
                 points[i].velocity *= 1.0f / speed;
 
             points[i].position += points[i].velocity * deltaTime;
-            if (points[i].position.y < -8.0f)
-                points[i].position.y = -8.0f;
+            //if (points[i].position.y < -8.0f)
+                //points[i].position.y = -8.0f;
         }
     }
 }
