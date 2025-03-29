@@ -9,21 +9,24 @@ class MassSpringPlane
     public:
         MassSpringPlane(float width)
         {
+            m_degreesOfFreedom = 12;
             m_points.push_back({ glm::vec3{ -width, -1.0f, 0.0f }, glm::vec3{ 0.0f }, glm::vec3{ 0.0f }, false }); // Bottom left
             m_points.push_back({ glm::vec3{ width, -1.0f, 0.0f }, glm::vec3{ 0.0f }, glm::vec3{ 0.0f }, false }); // Bottom right
             m_points.push_back({ glm::vec3{ -width, 9.0f, 0.0f }, glm::vec3{ 0.0f }, glm::vec3{ 0.0f }, true }); // Top left
             m_points.push_back({ glm::vec3{ width, 9.0f, 0.0f }, glm::vec3{ 0.0f }, glm::vec3{ 0.0f }, true }); // Top right
 
-            constexpr float stiffness{ 50.0f };
+            constexpr float stiffness{ 25.0f };
             m_springs = 
             {
                 Physics::Spring{0, 1, glm::length(m_points[0].position - m_points[1].position), stiffness},
                 Physics::Spring{0, 2, glm::length(m_points[0].position - m_points[2].position), stiffness},
                 Physics::Spring{1, 3, glm::length(m_points[1].position - m_points[3].position), stiffness},
-                Physics::Spring{2, 3, glm::length(m_points[2].position - m_points[3].position), stiffness}
+                Physics::Spring{2, 3, glm::length(m_points[2].position - m_points[3].position), stiffness},
+                Physics::Spring(0, 3, glm::length(m_points[0].position - m_points[3].position), stiffness),
+                Physics::Spring(1, 2, glm::length(m_points[1].position - m_points[2].position), stiffness)
             };
 
-            m_vertices.resize(12);
+            m_vertices.resize(m_degreesOfFreedom);
             for (size_t i{ 0 }; i < 4; ++i)
             {
                 m_vertices[i * 3] = m_points[i].position.x;
@@ -31,8 +34,7 @@ class MassSpringPlane
                 m_vertices[i * 3 + 2] = m_points[i].position.z;
             }
 
-            m_degreesOfFreedom = 12;
-            m_massMatrixInverse = Eigen::MatrixXf::Identity(m_degreesOfFreedom, m_degreesOfFreedom).inverse();
+            m_massMatrixInverse = Eigen::MatrixXf::Identity(m_degreesOfFreedom, m_degreesOfFreedom).inverse(); // Using identity since every point's mass = 1
 
             glGenVertexArrays(1, &m_VAO);
 
@@ -65,7 +67,6 @@ class MassSpringPlane
 
         void updatePhysics(float deltaTime)
         {
-            constexpr int m_degreesOfFreedom{ 12 };
             Eigen::VectorXf force(m_degreesOfFreedom);
             Eigen::MatrixXf stiffnessMatrix(m_degreesOfFreedom, m_degreesOfFreedom);
             force.setZero();
