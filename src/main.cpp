@@ -65,7 +65,7 @@ int main()
     compileShaders();
 
     // Handle objects
-    MassSpringPlane massSpringPlane{ 5.0f };
+    MassSpringPlane massSpringPlane{ 5.0f, 6 };
     const CollisionPlane collisionPlane{ 10.0f, -8.0f };
 
     // ****************
@@ -88,14 +88,14 @@ int main()
     glUseProgram(mainShader);
     glUniformMatrix4fv(glGetUniformLocation(mainShader, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
 
-    GLfloat lastFrameTime{ static_cast<GLfloat>(glfwGetTime()) };
+    GLfloat lastUpdateTime{ static_cast<GLfloat>(glfwGetTime()) };
     constexpr int degreesOfFreedom{ 12 };
     const Eigen::MatrixXf massMatrixInverse{ Eigen::MatrixXf::Identity(degreesOfFreedom, degreesOfFreedom).inverse() };
     while (!glfwWindowShouldClose(window)) 
     {
         const GLfloat currentTime{ static_cast<GLfloat>(glfwGetTime()) };
-        const GLfloat deltaTime{ currentTime - lastFrameTime };
-        lastFrameTime = currentTime;
+        const GLfloat deltaTime{ currentTime - lastUpdateTime };
+        lastUpdateTime = currentTime;
         massSpringPlane.updatePhysics(deltaTime);
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);

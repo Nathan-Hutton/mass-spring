@@ -7,7 +7,7 @@
 class MassSpringPlane
 {
     public:
-        MassSpringPlane(float width, size_t resolution=5)
+        MassSpringPlane(float width, size_t resolution=1)
         {
             const size_t numPointsPerSide{ resolution + 1 };
 
@@ -28,8 +28,15 @@ class MassSpringPlane
                 }
             }
 
+            m_vertices.resize(m_points.size() * 3);
+            for (size_t i{ 0 }; i < m_points.size(); ++i)
+            {
+                m_vertices[i * 3] = m_points[i].position.x;
+                m_vertices[i * 3 + 1] = m_points[i].position.y;
+                m_vertices[i * 3 + 2] = m_points[i].position.z;
+            }
+
             // Make springs
-            constexpr float stiffness{ 20.0f };
             for (size_t j{ 0 }; j < numPointsPerSide; ++j) 
             {
                 for (size_t i{ 0 }; i < numPointsPerSide; ++i) 
@@ -40,14 +47,14 @@ class MassSpringPlane
                     if (i < resolution)
                     {
                         const size_t nextIndex{ index + 1 };
-                        m_springs.push_back({index, nextIndex, glm::length(m_points[index].position - m_points[nextIndex].position), stiffness});
+                        m_springs.push_back({index, nextIndex, glm::length(m_points[index].position - m_points[nextIndex].position), m_stiffness});
                     }
 
                     // Vertical
                     if (j < resolution)
                     {
                         const size_t nextIndex{ (j + 1) * numPointsPerSide + i };
-                        m_springs.push_back({index, nextIndex, glm::length(m_points[index].position - m_points[nextIndex].position), stiffness});
+                        m_springs.push_back({index, nextIndex, glm::length(m_points[index].position - m_points[nextIndex].position), m_stiffness});
                     }
 
                     // Diagonals
@@ -55,12 +62,12 @@ class MassSpringPlane
                     {
                         // Connection from index to i+1, j+1
                         const size_t bottomRight{ (j + 1) * numPointsPerSide + (i + 1) };
-                        m_springs.push_back({index, bottomRight, glm::length(m_points[index].position - m_points[bottomRight].position), stiffness});
+                        m_springs.push_back({index, bottomRight, glm::length(m_points[index].position - m_points[bottomRight].position), m_stiffness});
 
                         // Connection from bottom i+1, j to i,j+1
                         const size_t upperRight{ j * numPointsPerSide + (i + 1) };
                         const size_t bottomLeft{ (j + 1) * numPointsPerSide + i };
-                        m_springs.push_back({upperRight, bottomLeft, glm::length(m_points[upperRight].position - m_points[bottomLeft].position), stiffness});
+                        m_springs.push_back({upperRight, bottomLeft, glm::length(m_points[upperRight].position - m_points[bottomLeft].position), m_stiffness});
                     }
                 }
             }
@@ -88,12 +95,11 @@ class MassSpringPlane
             m_degreesOfFreedom = m_points.size() * 3;
             m_massMatrixInverse = Eigen::MatrixXf::Identity(m_degreesOfFreedom, m_degreesOfFreedom).inverse(); // Using identity since every point's mass = 1
 
-            GLuint EBO;
             glGenVertexArrays(1, &m_VAO);
 
             glBindVertexArray(m_VAO);
 
-            glGenBuffers(1, &EBO);
+            glGenBuffers(1, &m_EBO);
 
             glGenBuffers(1, &m_VBO);
 
@@ -104,7 +110,7 @@ class MassSpringPlane
             glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), (void*)0); // Vertex positions
             glEnableVertexAttribArray(0);
 
-            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_EBO);
             glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(GLuint) * m_indices.size(), m_indices.data(), GL_STATIC_DRAW);
 
             glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -141,9 +147,14 @@ class MassSpringPlane
             Physics::getForceFromGravity(m_points, force);
             Physics::handleSpringForces(m_springs, m_points, force, stiffnessMatrix);
 
-            const Eigen::MatrixXf A{ Eigen::MatrixXf::Identity(m_degreesOfFreedom, m_degreesOfFreedom) - deltaTime * deltaTime * m_massMatrixInverse * stiffnessMatrix };
-            const Eigen::VectorXf b{ velocity + deltaTime * m_massMatrixInverse * force };
-            const Eigen::VectorXf vNext{ A.colPivHouseholderQr().solve(b) };
+            // I commented this line and the b calculation line out since m_massMatrixInverse is just identity
+            //Eigen::MatrixXf A{ Eigen::MatrixXf::Identity(m_degreesOfFreedom, m_degreesOfFreedom) - deltaTime * deltaTime * m_massMatrixInverse * stiffnessMatrix };
+            Eigen::MatrixXf A{ Eigen::MatrixXf::Identity(m_degreesOfFreedom, m_degreesOfFreedom) - deltaTime * deltaTime * stiffnessMatrix };
+            const float epsilon = 1e-5f + 0.01f * m_stiffness * 0.1f;
+            A += epsilon * Eigen::MatrixXf::Identity(m_degreesOfFreedom, m_degreesOfFreedom); // Regularization
+            //const Eigen::VectorXf b{ velocity + deltaTime * m_massMatrixInverse * force };
+            const Eigen::VectorXf b{ velocity + deltaTime * force };
+            const Eigen::VectorXf vNext{ A.ldlt().solve(b) };
 
             // Set new values
             Physics::setNewPoints(m_points, vNext, deltaTime);
@@ -159,11 +170,12 @@ class MassSpringPlane
         }
 
     private:
-        GLuint m_VAO, m_VBO;
+        GLuint m_VAO, m_VBO, m_EBO;
         std::vector<Physics::MassPoint> m_points{};
         std::vector<Physics::Spring> m_springs{};
         std::vector<GLfloat> m_vertices{};
         std::vector<GLuint> m_indices{};
         Eigen::MatrixXf m_massMatrixInverse{};
         int m_degreesOfFreedom{};
+        float m_stiffness{ 50.0f };
 };

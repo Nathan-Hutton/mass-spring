@@ -57,6 +57,16 @@ namespace Physics
             if (!points[spring.j].fixed)
                 force.segment<3>(3 * spring.j) -= springForce;
 
+            const glm::vec3 v_ij{ points[spring.i].velocity - points[spring.j].velocity };
+            constexpr float dampingCoef{ 0.4f };
+            const float dampingForce{ dampingCoef * glm::dot(v_ij, glm::normalize(diff)) };
+            const Eigen::Vector3f dampingVec{ dampingForce * dir };
+
+            if (!points[spring.i].fixed)
+                force.segment<3>(3 * spring.i) -= dampingVec;
+            if (!points[spring.j].fixed)
+                force.segment<3>(3 * spring.j) += dampingVec;
+
             const Eigen::Matrix3f contribution{ spring.stiffness * (Eigen::Matrix3f::Identity() - (d * d.transpose()) / (len * len)) };
 
             const size_t row{ spring.i * 3 };
@@ -79,7 +89,7 @@ namespace Physics
             points[i].velocity.y = vNext(3 * i + 1);
             points[i].velocity.z = vNext(3 * i + 2);
             points[i].position += points[i].velocity * deltaTime;
-            points[i].velocity *= 0.99f;
+            points[i].velocity *= 0.98f;
         }
     }
 }
