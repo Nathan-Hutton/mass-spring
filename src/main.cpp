@@ -85,7 +85,7 @@ int main()
     points[2] = { glm::vec3{ -5.0f, 9.0f, 0.0f }, glm::vec3{ 0.0f }, glm::vec3{ 0.0f }, true }; // Top left
     points[3] = { glm::vec3{ 5.0f, 9.0f, 0.0f }, glm::vec3{ 0.0f }, glm::vec3{ 0.0f }, true }; // Top right
 
-    constexpr float stiffness{ 100.0f };
+    constexpr float stiffness{ 50.0f };
     std::array<Spring, 4> springs
     {
         Spring{0, 1, glm::length(points[0].position - points[1].position), stiffness},
@@ -217,6 +217,7 @@ int main()
             points[i].velocity.y = vNext(3 * i + 1);
             points[i].velocity.z = vNext(3 * i + 2);
             points[i].position += points[i].velocity * deltaTime;
+            points[i].velocity *= 0.99f;
         }
 
         // Update VBO
