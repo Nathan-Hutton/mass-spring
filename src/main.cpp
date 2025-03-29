@@ -66,7 +66,7 @@ int main()
 
     // Handle objects
     MassSpringPlane massSpringPlane{ 5.0f };
-    const CollisionPlane collisionPlane{ 10.0f, -5.0f };
+    const CollisionPlane collisionPlane{ 10.0f, -8.0f };
 
     // ****************
     // Scene properties
