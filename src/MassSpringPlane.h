@@ -136,6 +136,8 @@ class MassSpringPlane
             m_A.resize(m_degreesOfFreedom, m_degreesOfFreedom);
             m_force.resize(m_degreesOfFreedom);
             m_velocity.resize(m_degreesOfFreedom);
+            m_b.resize(m_degreesOfFreedom);
+            m_vNext.resize(m_degreesOfFreedom);
             m_triplets.resize(36 * m_springs.size() + m_degreesOfFreedom);
 
             m_solver.setMaxIterations(100);
@@ -259,10 +261,10 @@ class MassSpringPlane
                 [](const float& a, const float& b) { return a + b; });
 
             m_solver.compute(m_A);
-            const Eigen::VectorXf b{ m_velocity + deltaTime * m_force };
-            const Eigen::VectorXf vNext{ m_solver.solve(b) };
+            m_b = m_velocity + deltaTime * m_force;
+            m_vNext = m_solver.solve(m_b);
 
-            Physics::setNewPoints(m_points, vNext, deltaTime);
+            Physics::setNewPoints(m_points, m_vNext, deltaTime);
             updateVBO();
         }
 
@@ -284,5 +286,7 @@ class MassSpringPlane
         Eigen::BiCGSTAB<Eigen::SparseMatrix<float>, Eigen::DiagonalPreconditioner<float>> m_solver;
         Eigen::VectorXf m_force;
         Eigen::VectorXf m_velocity;
+        Eigen::VectorXf m_b;
+        Eigen::VectorXf m_vNext;
         std::vector<Eigen::Triplet<float>> m_triplets;
 };
