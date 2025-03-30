@@ -2,8 +2,24 @@
 
 #include <GL/glew.h>
 #include <array>
+#include <set>
 #include <chrono>
 #include "Physics.h"
+
+struct pair_hash {
+    template <typename T1, typename T2>
+    std::size_t operator()(const std::pair<T1, T2>& p) const {
+        auto h1 = std::hash<T1>{}(p.first);
+        auto h2 = std::hash<T2>{}(p.second);
+        return h1 ^ (h2 << 1);
+    }
+};
+
+struct TripletInfo {
+    int row;
+    int col;
+    size_t index;
+};
 
 class MassSpringPlane
 {
@@ -139,7 +155,47 @@ class MassSpringPlane
             m_velocity.resize(m_degreesOfFreedom);
             m_b.resize(m_degreesOfFreedom);
             m_vNext.resize(m_degreesOfFreedom);
-            m_triplets.resize(36 * m_springs.size() + m_degreesOfFreedom);
+
+            std::set<std::pair<int, int>> uniqueTripletSet;
+            for (int i{ 0 }; i < m_degreesOfFreedom; ++i)
+                uniqueTripletSet.emplace(i, i);
+
+            for (const Physics::Spring& spring : m_springs)
+            {
+                const int iBase{ 3 * static_cast<int>(spring.i) };
+                const int jBase{ 3 * static_cast<int>(spring.j) };
+
+                for (int row{ 0 }; row < 3; ++row)
+                {
+                    for (int col{ 0 }; col < 3; ++col)
+                    {
+                        uniqueTripletSet.emplace(iBase + row, iBase + col);
+                        uniqueTripletSet.emplace(jBase + row, jBase + col);
+                        uniqueTripletSet.emplace(iBase + row, jBase + col);
+                        uniqueTripletSet.emplace(jBase + row, iBase + col);
+                    }
+                }
+            }
+
+            m_tripletsFixedStructure.reserve(uniqueTripletSet.size());
+            for (const auto& [row, col] : uniqueTripletSet)
+                m_tripletsFixedStructure.emplace_back(row, col, 0.0f);
+
+            m_tripletValues.resize(m_tripletsFixedStructure.size());
+
+            {
+                std::vector<TripletInfo> tripletIndexList;
+                tripletIndexList.reserve(m_tripletsFixedStructure.size());
+                for (size_t i{ 0 }; i < m_tripletsFixedStructure.size(); ++i)
+                {
+                    const auto& triplet{ m_tripletsFixedStructure[i] };
+                    tripletIndexList.push_back({ triplet.row(), triplet.col(), i });
+                }
+
+                m_indexGrid.resize(m_degreesOfFreedom * m_degreesOfFreedom, static_cast<size_t>(-1));
+                for (const auto& t : tripletIndexList)
+                    m_indexGrid[t.row * m_degreesOfFreedom + t.col] = t.index;
+            }
 
             m_solver.setMaxIterations(100);
             m_solver.setTolerance(1e-5);
@@ -203,9 +259,14 @@ class MassSpringPlane
 
         void updatePhysics(float deltaTime)
         {
+            const auto get_idx = [&](int row, int col) -> size_t {
+                return m_indexGrid[row * m_degreesOfFreedom + col];
+            };
+
             using clock = std::chrono::high_resolution_clock;
             const auto start{ clock::now() };
 
+            std::fill(m_tripletValues.begin(), m_tripletValues.end(), 0.0f);
             m_force.setZero();
 
             for (size_t i{ 0 }; i < m_points.size(); ++i) {
@@ -222,11 +283,12 @@ class MassSpringPlane
             constexpr float massDampingCoef{ 0.5f };
 
             // Mass + damping diagonal
-            size_t tripletsIndex{ 0 };
             for (int i{ 0 }; i < m_degreesOfFreedom; ++i)
-                m_triplets[tripletsIndex++] = Eigen::Triplet<float>{ i, i, 1.0f + epsilon + deltaTime * massDampingCoef };
+                m_tripletValues[get_idx(i, i)] = 1.0f + epsilon + deltaTime * massDampingCoef;
 
              // Add stiffness contributions per spring (directly to triplets)
+            const auto secondLoopStart{ clock::now() };
+
             for (const auto& spring : m_springs)
             {
                 if (m_points[spring.i].fixed && m_points[spring.j].fixed)
@@ -253,18 +315,32 @@ class MassSpringPlane
                     {
                         const float val{ -deltaTime * deltaTime * K(row, col) };
 
-                        m_triplets[tripletsIndex++] = Eigen::Triplet<float>{ iBase + row, iBase + col, +val }; // i-i
-                        m_triplets[tripletsIndex++] = Eigen::Triplet<float>{ jBase + row, jBase + col, +val }; // j-j
-                        m_triplets[tripletsIndex++] = Eigen::Triplet<float>{ iBase + row, jBase + col, -val }; // i-j
-                        m_triplets[tripletsIndex++] = Eigen::Triplet<float>{ jBase + row, iBase + col, -val }; // j-i
+                        m_tripletValues[get_idx(iBase + row, iBase + col)] += +val; // i-i
+                        m_tripletValues[get_idx(jBase + row, jBase + col)] += +val; // i-i
+                        m_tripletValues[get_idx(iBase + row, jBase + col)] -= +val; // i-i
+                        m_tripletValues[get_idx(jBase + row, iBase + col)] -= +val; // i-i
                     }
                 }
             }
+            const auto secondLoopEnd{ clock::now() };
+            const auto secondLoopElapsed{ std::chrono::duration_cast<std::chrono::microseconds>(secondLoopEnd - secondLoopStart).count() };
+            std::cout << "secondLoop took " << secondLoopElapsed / 1000.0 << " ms" << std::endl;
+
+            const auto thirdLoopStart{ clock::now() };
+
+            for (size_t i{ 0 }; i < m_tripletValues.size(); ++i)
+            {
+                const auto& trip{ m_tripletsFixedStructure[i] };
+                m_tripletsFixedStructure[i] = Eigen::Triplet<float>(trip.row(), trip.col(), m_tripletValues[i]);
+            }
+
+            const auto thirdLoopEnd{ clock::now() };
+            const auto thirdLoopElapsed{ std::chrono::duration_cast<std::chrono::microseconds>(thirdLoopEnd - thirdLoopStart).count() };
+            std::cout << "thirdLoop took " << thirdLoopElapsed / 1000.0 << " ms" << std::endl;
 
             const auto maStart{ clock::now() };
 
-            m_A.setFromTriplets(m_triplets.begin(), m_triplets.end(),
-                [](const float& a, const float& b) { return a + b; });
+            m_A.setFromTriplets(m_tripletsFixedStructure.begin(), m_tripletsFixedStructure.end());
 
             const auto maEnd{ clock::now() };
             const auto maElapsed{ std::chrono::duration_cast<std::chrono::microseconds>(maEnd - maStart).count() };
@@ -302,5 +378,7 @@ class MassSpringPlane
         Eigen::VectorXf m_velocity;
         Eigen::VectorXf m_b;
         Eigen::VectorXf m_vNext;
-        std::vector<Eigen::Triplet<float>> m_triplets;
+        std::vector<Eigen::Triplet<float>> m_tripletsFixedStructure;
+        std::vector<float> m_tripletValues;
+        std::vector<size_t> m_indexGrid;
 };
