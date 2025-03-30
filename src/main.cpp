@@ -65,7 +65,7 @@ int main()
     compileShaders();
 
     // Handle objects
-    MassSpringPlane massSpringPlane{ 5.0f, 30 };
+    MassSpringPlane massSpringPlane{ 5.0f, 15 };
     const CollisionPlane collisionPlane{ 10.0f, -8.0f };
 
     // ****************

@@ -186,6 +186,7 @@ class MassSpringPlane
             }
 
             Physics::getForceFromGravity(m_points, force);
+            Physics::getSpringForces(m_springs, m_points, force);
 
             // Clear m_A matrix values
             for (int k = 0; k < m_A.outerSize(); ++k)
@@ -234,7 +235,7 @@ class MassSpringPlane
         std::vector<GLfloat> m_vertices{};
         std::vector<GLuint> m_indices{};
         int m_degreesOfFreedom{};
-        float m_stiffness{ 40.0f };
+        float m_stiffness{ 200.0f };
         Eigen::SparseMatrix<float> m_A;
         Eigen::SparseMatrix<float> m_dampingMatrix;
         Eigen::BiCGSTAB<Eigen::SparseMatrix<float>, Eigen::DiagonalPreconditioner<float>> m_solver;
