@@ -14,16 +14,16 @@ namespace Physics
     {
         glm::vec3 position;
         glm::vec3 velocity;
-        glm::vec3 force;
-        bool fixed;
+        const glm::vec3 force;
+        const bool fixed;
     };
 
     struct Spring
     {
-        size_t i, j;
-        float restLength;
-        float stiffness;
-        Eigen::Matrix3f K;
+        const size_t i, j;
+        const float restLength;
+        const float stiffness;
+        const Eigen::Matrix3f K;
     };
 
     void getForceFromGravity(const std::vector<MassPoint>& points, Eigen::VectorXf& force)
@@ -55,39 +55,6 @@ namespace Physics
                 force.block<3, 1>(3 * spring.i, 0) += f;
             if (!points[spring.j].fixed)
                 force.block<3, 1>(3 * spring.j, 0) -= f;
-        }
-    }
-
-    void accumulateStiffnessValues(
-        const std::vector<Spring>& springs,
-        const std::vector<MassPoint>& points,
-        std::vector<float>& out)
-    {
-        size_t index{ 0 };
-        for (const Spring& spring : springs)
-        {
-            const glm::vec3 diff{ points[spring.i].position - points[spring.j].position };
-            const Eigen::Vector3f d{ diff.x, diff.y, diff.z };
-            const float len{ d.norm() };
-            if (len < 1e-5f) 
-            {
-                ++index;
-                continue;
-            }
-
-            const Eigen::Matrix3f K{ spring.stiffness * (Eigen::Matrix3f::Identity() - (d * d.transpose()) / (len * len)) };
-
-            for (int row{ 0 }; row < 3; ++row)
-            {
-                for (int col{ 0 }; col < 3; ++col)
-                {
-                    float val{ K(row, col) };
-                    out[index++] += val;  // i,i
-                    out[index++] += val;  // j,j
-                    out[index++] -= val;  // i,j
-                    out[index++] -= val;  // j,i
-                }
-            }
         }
     }
 

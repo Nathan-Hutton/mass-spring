@@ -134,6 +134,8 @@ class MassSpringPlane
 
             m_degreesOfFreedom = m_points.size() * 3;
             m_A.resize(m_degreesOfFreedom, m_degreesOfFreedom);
+            m_force.resize(m_degreesOfFreedom);
+            m_velocity.resize(m_degreesOfFreedom);
 
             m_solver.setMaxIterations(100);
             m_solver.setTolerance(1e-5);
@@ -197,19 +199,17 @@ class MassSpringPlane
 
         void updatePhysics(float deltaTime)
         {
-            Eigen::VectorXf force(m_degreesOfFreedom);
-            force.setZero();
+            m_force.setZero();
 
-            Eigen::VectorXf velocity(m_degreesOfFreedom);
             for (size_t i{ 0 }; i < m_points.size(); ++i) {
-                velocity.segment<3>(3 * i) = Eigen::Vector3f(
+                m_velocity.segment<3>(3 * i) = Eigen::Vector3f(
                     m_points[i].velocity.x,
                     m_points[i].velocity.y,
                     m_points[i].velocity.z);
             }
 
-            Physics::getForceFromGravity(m_points, force);
-            Physics::getSpringForces(m_springs, m_points, force);
+            Physics::getForceFromGravity(m_points, m_force);
+            Physics::getSpringForces(m_springs, m_points, m_force);
 
             std::vector<Eigen::Triplet<float>> triplets;
             const float epsilon{ 1e-4f + 0.001f * m_stiffness };
@@ -258,7 +258,7 @@ class MassSpringPlane
                 [](const float& a, const float& b) { return a + b; });
 
             m_solver.compute(m_A);
-            const Eigen::VectorXf b{ velocity + deltaTime * force };
+            const Eigen::VectorXf b{ m_velocity + deltaTime * m_force };
             const Eigen::VectorXf vNext{ m_solver.solve(b) };
 
             Physics::setNewPoints(m_points, vNext, deltaTime);
@@ -281,4 +281,6 @@ class MassSpringPlane
         float m_stiffness{ 200.0f };
         Eigen::SparseMatrix<float> m_A;
         Eigen::BiCGSTAB<Eigen::SparseMatrix<float>, Eigen::DiagonalPreconditioner<float>> m_solver;
+        Eigen::VectorXf m_force;
+        Eigen::VectorXf m_velocity;
 };
