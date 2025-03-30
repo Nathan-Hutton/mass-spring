@@ -191,7 +191,7 @@ class MassSpringPlane
         std::vector<GLfloat> m_vertices{};
         std::vector<GLuint> m_indices{};
         int m_degreesOfFreedom{};
-        float m_stiffness{ 100.0f };
+        float m_stiffness{ 300.0f };
         Eigen::SparseMatrix<float> m_A;
         Eigen::SimplicialLDLT<Eigen::SparseMatrix<float>> m_solver;
 };

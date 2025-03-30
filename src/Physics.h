@@ -34,8 +34,9 @@ namespace Physics
             if (points[i].fixed)
                 continue;
 
-            const glm::vec3 forceFromGravity{ gravity - damping * points[i].velocity };
-            force.segment<3>(3 * i) = Eigen::Vector3f(forceFromGravity.x, forceFromGravity.y, forceFromGravity.z);
+            const glm::vec3 dampingForce{ -damping * points[i].velocity };
+            const glm::vec3 totalForce{ gravity + dampingForce };
+            force.segment<3>(3 * i) = Eigen::Vector3f(totalForce.x, totalForce.y, totalForce.z);
         }
     }
 
@@ -60,16 +61,6 @@ namespace Physics
                 force.segment<3>(3 * spring.i) += springForce;
             if (!points[spring.j].fixed)
                 force.segment<3>(3 * spring.j) -= springForce;
-
-            const glm::vec3 v_ij{ points[spring.i].velocity - points[spring.j].velocity };
-            constexpr float dampingCoef{ 0.4f };
-            const float dampingForce{ dampingCoef * glm::dot(v_ij, glm::normalize(diff)) };
-            const Eigen::Vector3f dampingVec{ dampingForce * dir };
-
-            if (!points[spring.i].fixed)
-                force.segment<3>(3 * spring.i) -= dampingVec;
-            if (!points[spring.j].fixed)
-                force.segment<3>(3 * spring.j) += dampingVec;
 
             const Eigen::Matrix3f contribution{ spring.stiffness * (Eigen::Matrix3f::Identity() - (d * d.transpose()) / (len * len)) };
 
