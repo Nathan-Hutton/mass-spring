@@ -27,13 +27,13 @@ namespace Physics
 
     void getForceFromGravity(const std::vector<MassPoint>& points, Eigen::VectorXf& force)
     {
-        constexpr glm::vec3 gravity{ 0.0f, -9.81f, 0.0f };
+        const Eigen::Vector3f gravity{ 0.0f, -9.81f, 0.0f };
         for (size_t i{ 0 }; i < points.size(); ++i)
         {
             if (points[i].fixed)
                 continue;
 
-            force.segment<3>(3 * i) = Eigen::Vector3f(gravity.x, gravity.y, gravity.z);
+            force.block<3, 1>(3 * i, 0) = gravity;
         }
     }
 
@@ -51,9 +51,9 @@ namespace Physics
             const Eigen::Vector3f f = -spring.stiffness * stretch * dir;
 
             if (!points[spring.i].fixed)
-                force.segment<3>(3 * spring.i) += f;
+                force.block<3, 1>(3 * spring.i, 0) += f;
             if (!points[spring.j].fixed)
-                force.segment<3>(3 * spring.j) -= f;
+                force.block<3, 1>(3 * spring.j, 0) -= f;
         }
     }
 
