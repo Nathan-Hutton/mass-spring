@@ -136,6 +136,7 @@ class MassSpringPlane
             m_A.resize(m_degreesOfFreedom, m_degreesOfFreedom);
             m_force.resize(m_degreesOfFreedom);
             m_velocity.resize(m_degreesOfFreedom);
+            m_triplets.resize(36 * m_springs.size() + m_degreesOfFreedom);
 
             m_solver.setMaxIterations(100);
             m_solver.setTolerance(1e-5);
@@ -211,13 +212,13 @@ class MassSpringPlane
             Physics::getForceFromGravity(m_points, m_force);
             Physics::getSpringForces(m_springs, m_points, m_force);
 
-            std::vector<Eigen::Triplet<float>> triplets;
             const float epsilon{ 1e-4f + 0.001f * m_stiffness };
             constexpr float massDampingCoef{ 0.5f };
 
             // Mass + damping diagonal
+            size_t tripletsIndex{ 0 };
             for (int i{ 0 }; i < m_degreesOfFreedom; ++i)
-                triplets.emplace_back(i, i, 1.0f + epsilon + deltaTime * massDampingCoef);
+                m_triplets[tripletsIndex++] = Eigen::Triplet<float>{ i, i, 1.0f + epsilon + deltaTime * massDampingCoef };
 
              // Add stiffness contributions per spring (directly to triplets)
             for (const auto& spring : m_springs)
@@ -246,15 +247,15 @@ class MassSpringPlane
                     {
                         const float val{ -deltaTime * deltaTime * K(row, col) };
 
-                        triplets.emplace_back(iBase + row, iBase + col, +val); // i-i
-                        triplets.emplace_back(jBase + row, jBase + col, +val); // j-j
-                        triplets.emplace_back(iBase + row, jBase + col, -val); // i-j
-                        triplets.emplace_back(jBase + row, iBase + col, -val); // j-i
+                        m_triplets[tripletsIndex++] = Eigen::Triplet<float>{ iBase + row, iBase + col, +val }; // i-i
+                        m_triplets[tripletsIndex++] = Eigen::Triplet<float>{ jBase + row, jBase + col, +val }; // j-j
+                        m_triplets[tripletsIndex++] = Eigen::Triplet<float>{ iBase + row, jBase + col, -val }; // i-j
+                        m_triplets[tripletsIndex++] = Eigen::Triplet<float>{ jBase + row, iBase + col, -val }; // j-i
                     }
                 }
             }
 
-            m_A.setFromTriplets(triplets.begin(), triplets.end(),
+            m_A.setFromTriplets(m_triplets.begin(), m_triplets.end(),
                 [](const float& a, const float& b) { return a + b; });
 
             m_solver.compute(m_A);
@@ -283,4 +284,5 @@ class MassSpringPlane
         Eigen::BiCGSTAB<Eigen::SparseMatrix<float>, Eigen::DiagonalPreconditioner<float>> m_solver;
         Eigen::VectorXf m_force;
         Eigen::VectorXf m_velocity;
+        std::vector<Eigen::Triplet<float>> m_triplets;
 };
