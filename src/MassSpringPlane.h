@@ -43,14 +43,14 @@ class MassSpringPlane
                     if (i < resolution)
                     {
                         const size_t nextIndex{ index + 1 };
-                        m_springs.push_back({index, nextIndex, glm::length(m_points[index].position - m_points[nextIndex].position), m_stiffness});
+                        m_springs.push_back({index, nextIndex, glm::distance(m_points[index].position, m_points[nextIndex].position), m_stiffness});
                     }
 
                     // Vertical
                     if (j < resolution)
                     {
                         const size_t nextIndex{ (j + 1) * numPointsPerSide + i };
-                        m_springs.push_back({index, nextIndex, glm::length(m_points[index].position - m_points[nextIndex].position), m_stiffness});
+                        m_springs.push_back({index, nextIndex, glm::distance(m_points[index].position, m_points[nextIndex].position), m_stiffness});
                     }
 
                     // Diagonals
@@ -58,12 +58,12 @@ class MassSpringPlane
                     {
                         // Connection from index to i+1, j+1
                         const size_t bottomRight{ (j + 1) * numPointsPerSide + (i + 1) };
-                        m_springs.push_back({index, bottomRight, glm::length(m_points[index].position - m_points[bottomRight].position), m_stiffness});
+                        m_springs.push_back({index, bottomRight, glm::distance(m_points[index].position, m_points[bottomRight].position), m_stiffness});
 
                         // Connection from bottom i+1, j to i,j+1
                         const size_t upperRight{ j * numPointsPerSide + (i + 1) };
                         const size_t bottomLeft{ (j + 1) * numPointsPerSide + i };
-                        m_springs.push_back({upperRight, bottomLeft, glm::length(m_points[upperRight].position - m_points[bottomLeft].position), m_stiffness});
+                        m_springs.push_back({upperRight, bottomLeft, glm::distance(m_points[upperRight].position, m_points[bottomLeft].position), m_stiffness});
                     }
                 }
             }
@@ -96,8 +96,8 @@ class MassSpringPlane
                 for (const auto& [row, col] : m_stiffnessTripletIndices)
                     dummyTriplets.emplace_back(row, col, 0.0f);
 
-                for (int i{ 0 }; i < m_degreesOfFreedom; ++i)
-                    dummyTriplets.emplace_back(i, i, 0.0f);
+                //for (int i{ 0 }; i < m_degreesOfFreedom; ++i)
+                    //dummyTriplets.emplace_back(i, i, 0.0f);
 
                 m_A.setFromTriplets(dummyTriplets.begin(), dummyTriplets.end());
             }
@@ -113,7 +113,7 @@ class MassSpringPlane
                 m_dampingMatrix.setFromTriplets(triplets.begin(), triplets.end());
             }
 
-            m_solver.setMaxIterations(10); // Or even 50
+            m_solver.setMaxIterations(100);
             m_solver.setTolerance(1e-5);
 
             // Handle indices
@@ -187,31 +187,46 @@ class MassSpringPlane
 
             Physics::getForceFromGravity(m_points, force);
             Physics::getSpringForces(m_springs, m_points, force);
+            std::fill(m_stiffnessValues.begin(), m_stiffnessValues.end(), 0.0f);
+            Physics::accumulateStiffnessValues(m_springs, m_points, m_stiffnessValues);
 
-            // Clear m_A matrix values
-            for (int k = 0; k < m_A.outerSize(); ++k)
-                for (Eigen::SparseMatrix<float>::InnerIterator it(m_A, k); it; ++it)
-                    it.valueRef() = 0.0f;
-
+            std::vector<Eigen::Triplet<float>> triplets;
             const float epsilon = 1e-4f + 0.001f * m_stiffness;
             constexpr float massDampingCoef{ 0.5f };
             for (int i = 0; i < m_degreesOfFreedom; ++i)
-                m_A.coeffRef(i, i) = 1.0f + epsilon + deltaTime * massDampingCoef;
-
-            // Clear and accumulate stiffness values with precomputed indices
-            std::fill(m_stiffnessValues.begin(), m_stiffnessValues.end(), 0.0f);
-            Physics::accumulateStiffnessValues(m_springs, m_points, m_stiffnessValues);
+                triplets.emplace_back(i, i, 1.0f + epsilon + deltaTime * massDampingCoef);
 
             for (size_t i{ 0 }; i < m_stiffnessTripletIndices.size(); ++i)
             {
                 const auto& [row, col]{ m_stiffnessTripletIndices[i] };
-                m_A.coeffRef(row, col) -= (deltaTime * deltaTime) * m_stiffnessValues[i];
+                triplets.emplace_back(row, col, -deltaTime * deltaTime * m_stiffnessValues[i]);
             }
 
+            // Clear m_A matrix values
+            //for (int k = 0; k < m_A.outerSize(); ++k)
+            //    for (Eigen::SparseMatrix<float>::InnerIterator it(m_A, k); it; ++it)
+            //        it.valueRef() = 0.0f;
+
+            //for (int i = 0; i < m_degreesOfFreedom; ++i)
+                //m_A.coeffRef(i, i) = 1.0f + epsilon + deltaTime * massDampingCoef;
+
+            // Clear and accumulate stiffness values with precomputed indices
+            //std::fill(m_stiffnessValues.begin(), m_stiffnessValues.end(), 0.0f);
+
+            //for (size_t i{ 0 }; i < m_stiffnessTripletIndices.size(); ++i)
+            //{
+            //    const auto& [row, col]{ m_stiffnessTripletIndices[i] };
+            //    m_A.coeffRef(row, col) -= (deltaTime * deltaTime) * m_stiffnessValues[i];
+            //}
+
+            m_A.setFromTriplets(triplets.begin(), triplets.end());
+            //m_A.setFromTriplets(triplets.begin(), triplets.end(),
+                //[](float& existing, const float& newVal) { existing += newVal; });
+
             // Apply damping matrix
-            for (int k{ 0 }; k < m_dampingMatrix.outerSize(); ++k)
-                for (Eigen::SparseMatrix<float>::InnerIterator it(m_dampingMatrix, k); it; ++it)
-                    m_A.coeffRef(it.row(), it.col()) -= deltaTime * it.value();
+            //for (int k{ 0 }; k < m_dampingMatrix.outerSize(); ++k)
+            //    for (Eigen::SparseMatrix<float>::InnerIterator it(m_dampingMatrix, k); it; ++it)
+            //        m_A.coeffRef(it.row(), it.col()) -= deltaTime * it.value();
 
             m_solver.compute(m_A);
             const Eigen::VectorXf b{ velocity + deltaTime * force };
