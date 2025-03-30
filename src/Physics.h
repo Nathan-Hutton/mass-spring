@@ -27,16 +27,13 @@ namespace Physics
 
     void getForceFromGravity(const std::vector<MassPoint>& points, Eigen::VectorXf& force)
     {
-        constexpr float damping{ 0.4f };
         constexpr glm::vec3 gravity{ 0.0f, -9.81f, 0.0f };
         for (size_t i{ 0 }; i < points.size(); ++i)
         {
             if (points[i].fixed)
                 continue;
 
-            const glm::vec3 dampingForce{ -damping * points[i].velocity };
-            const glm::vec3 totalForce{ gravity + dampingForce };
-            force.segment<3>(3 * i) = Eigen::Vector3f(totalForce.x, totalForce.y, totalForce.z);
+            force.segment<3>(3 * i) = Eigen::Vector3f(gravity.x, gravity.y, gravity.z);
         }
     }
 
@@ -49,7 +46,7 @@ namespace Physics
         for (const Physics::Spring& spring : springs)
         {
             const glm::vec3 diff{ points[spring.i].position - points[spring.j].position };
-            const Eigen::Vector3f d(diff.x, diff.y, diff.z);
+            const Eigen::Vector3f d{ diff.x, diff.y, diff.z };
             const float len{ d.norm() };
             if (len < 1e-5f) continue;
 
@@ -90,7 +87,7 @@ namespace Physics
             points[i].velocity.x = vNext(3 * i);
             points[i].velocity.y = vNext(3 * i + 1);
             points[i].velocity.z = vNext(3 * i + 2);
-            points[i].velocity *= 0.98f;
+            points[i].velocity *= 0.95f;
             const float speed{ glm::length(points[i].velocity) };
             if (speed > 1.0f)
                 points[i].velocity *= 1.0f / speed;
