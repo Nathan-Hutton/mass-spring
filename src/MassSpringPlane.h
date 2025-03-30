@@ -2,6 +2,7 @@
 
 #include <GL/glew.h>
 #include <array>
+#include <chrono>
 #include "Physics.h"
 
 class MassSpringPlane
@@ -202,6 +203,9 @@ class MassSpringPlane
 
         void updatePhysics(float deltaTime)
         {
+            using clock = std::chrono::high_resolution_clock;
+            const auto start{ clock::now() };
+
             m_force.setZero();
 
             for (size_t i{ 0 }; i < m_points.size(); ++i) {
@@ -257,8 +261,14 @@ class MassSpringPlane
                 }
             }
 
+            const auto maStart{ clock::now() };
+
             m_A.setFromTriplets(m_triplets.begin(), m_triplets.end(),
                 [](const float& a, const float& b) { return a + b; });
+
+            const auto maEnd{ clock::now() };
+            const auto maElapsed{ std::chrono::duration_cast<std::chrono::microseconds>(maEnd - maStart).count() };
+            std::cout << "ma took " << maElapsed / 1000.0 << " ms" << std::endl;
 
             m_solver.compute(m_A);
             m_b = m_velocity + deltaTime * m_force;
@@ -266,6 +276,10 @@ class MassSpringPlane
 
             Physics::setNewPoints(m_points, m_vNext, deltaTime);
             updateVBO();
+
+            const auto end{ clock::now() };
+            const auto elapsed{ std::chrono::duration_cast<std::chrono::microseconds>(end - start).count() };
+            std::cout << "updatePhysics() took " << elapsed / 1000.0 << " ms" << std::endl;
         }
 
         void draw() const
