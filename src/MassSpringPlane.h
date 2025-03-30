@@ -68,20 +68,38 @@ class MassSpringPlane
                 }
             }
 
+            // Precompute triplet indices
+            for (const Physics::Spring& spring : m_springs)
+            {
+                const int iBase = 3 * spring.i;
+                const int jBase = 3 * spring.j;
+
+                for (int row = 0; row < 3; ++row)
+                {
+                    for (int col = 0; col < 3; ++col)
+                    {
+                        m_stiffnessTripletIndices.emplace_back(iBase + row, iBase + col);
+                        m_stiffnessTripletIndices.emplace_back(jBase + row, jBase + col);
+                        m_stiffnessTripletIndices.emplace_back(iBase + row, jBase + col);
+                        m_stiffnessTripletIndices.emplace_back(jBase + row, iBase + col);
+                    }
+                }
+            }
+
+            m_stiffnessValues.resize(m_stiffnessTripletIndices.size());
             m_degreesOfFreedom = m_points.size() * 3;
 
-            // Set sparsity pattern for A
             {
                 m_A.resize(m_degreesOfFreedom, m_degreesOfFreedom);
 
-                std::vector<Eigen::Triplet<float>> triplets;
-                Eigen::VectorXf force{ Eigen::VectorXf::Zero(m_degreesOfFreedom) };
-                Physics::handleSpringForces(m_springs, m_points, force, triplets);
-
-                m_A.setFromTriplets(triplets.begin(), triplets.end());
+                std::vector<Eigen::Triplet<float>> dummyTriplets;
+                for (const auto& [row, col] : m_stiffnessTripletIndices)
+                    dummyTriplets.emplace_back(row, col, 0.0f);
 
                 for (int i{ 0 }; i < m_degreesOfFreedom; ++i)
-                    m_A.coeffRef(i, i) += 1e-5f;
+                    dummyTriplets.emplace_back(i, i, 0.0f);
+
+                m_A.setFromTriplets(dummyTriplets.begin(), dummyTriplets.end());
             }
 
             // Damping matrix
@@ -94,6 +112,9 @@ class MassSpringPlane
                     triplets.emplace_back(i, i, dampingCoefficient);
                 m_dampingMatrix.setFromTriplets(triplets.begin(), triplets.end());
             }
+
+            m_solver.setMaxIterations(10); // Or even 50
+            m_solver.setTolerance(1e-5);
 
             // Handle indices
             for (size_t j{ 0 }; j < resolution; ++j)
@@ -166,24 +187,31 @@ class MassSpringPlane
 
             Physics::getForceFromGravity(m_points, force);
 
+            // Clear m_A matrix values
             for (int k = 0; k < m_A.outerSize(); ++k)
                 for (Eigen::SparseMatrix<float>::InnerIterator it(m_A, k); it; ++it)
                     it.valueRef() = 0.0f;
 
-            const float epsilon = 1e-4f + 0.01f * m_stiffness * 0.1f;
+            const float epsilon = 1e-4f + 0.001f * m_stiffness;
+            constexpr float massDampingCoef{ 0.5f };
             for (int i = 0; i < m_degreesOfFreedom; ++i)
-                m_A.coeffRef(i, i) = 1.0f + epsilon;
+                m_A.coeffRef(i, i) = 1.0f + epsilon + deltaTime * massDampingCoef;
 
-            std::vector<Eigen::Triplet<float>> stiffnessTriplets;
-            Physics::handleSpringForces(m_springs, m_points, force, stiffnessTriplets);
-            for (const auto& triplet : stiffnessTriplets)
-                m_A.coeffRef(triplet.row(), triplet.col()) -= (deltaTime * deltaTime) * triplet.value();
+            // Clear and accumulate stiffness values with precomputed indices
+            std::fill(m_stiffnessValues.begin(), m_stiffnessValues.end(), 0.0f);
+            Physics::accumulateStiffnessValues(m_springs, m_points, m_stiffnessValues);
 
+            for (size_t i{ 0 }; i < m_stiffnessTripletIndices.size(); ++i)
+            {
+                const auto& [row, col]{ m_stiffnessTripletIndices[i] };
+                m_A.coeffRef(row, col) -= (deltaTime * deltaTime) * m_stiffnessValues[i];
+            }
+
+            // Apply damping matrix
             for (int k{ 0 }; k < m_dampingMatrix.outerSize(); ++k)
                 for (Eigen::SparseMatrix<float>::InnerIterator it(m_dampingMatrix, k); it; ++it)
                     m_A.coeffRef(it.row(), it.col()) -= deltaTime * it.value();
-                                                                                                           //
-            //m_solver.factorize(m_A);
+
             m_solver.compute(m_A);
             const Eigen::VectorXf b{ velocity + deltaTime * force };
             const Eigen::VectorXf vNext{ m_solver.solve(b) };
@@ -206,8 +234,10 @@ class MassSpringPlane
         std::vector<GLfloat> m_vertices{};
         std::vector<GLuint> m_indices{};
         int m_degreesOfFreedom{};
-        float m_stiffness{ 300.0f };
+        float m_stiffness{ 40.0f };
         Eigen::SparseMatrix<float> m_A;
         Eigen::SparseMatrix<float> m_dampingMatrix;
-        Eigen::ConjugateGradient<Eigen::SparseMatrix<float>, Eigen::Lower | Eigen::Upper> m_solver;
+        Eigen::BiCGSTAB<Eigen::SparseMatrix<float>, Eigen::DiagonalPreconditioner<float>> m_solver;
+        std::vector<std::pair<int, int>> m_stiffnessTripletIndices;
+        std::vector<float> m_stiffnessValues;
 };

@@ -37,12 +37,42 @@ namespace Physics
         }
     }
 
+    void accumulateStiffnessValues(
+        const std::vector<Spring>& springs,
+        const std::vector<MassPoint>& points,
+        std::vector<float>& out)
+    {
+        size_t index{ 0 };
+        for (const Spring& spring : springs)
+        {
+            const glm::vec3 diff{ points[spring.i].position - points[spring.j].position };
+            const Eigen::Vector3f d{ diff.x, diff.y, diff.z };
+            const float len{ d.norm() };
+            if (len < 1e-5f) continue;
+
+            const Eigen::Matrix3f K{ spring.stiffness * (Eigen::Matrix3f::Identity() - (d * d.transpose()) / (len * len)) };
+
+            for (int row{ 0 }; row < 3; ++row)
+            {
+                for (int col{ 0 }; col < 3; ++col)
+                {
+                    float val{ K(row, col) };
+                    out[index++] += val;  // i,i
+                    out[index++] += val;  // j,j
+                    out[index++] -= val;  // i,j
+                    out[index++] -= val;  // j,i
+                }
+            }
+        }
+    }
+
     void handleSpringForces(
         const std::vector<Spring>& springs,
         const std::vector<MassPoint>& points,
         Eigen::VectorXf& force,
-        std::vector<Eigen::Triplet<float>>& stiffnessTriplets)
+        std::vector<float>& stiffnessValues)
     {
+        size_t index{ 0 };
         for (const Physics::Spring& spring : springs)
         {
             const glm::vec3 diff{ points[spring.i].position - points[spring.j].position };
@@ -61,17 +91,17 @@ namespace Physics
 
             const Eigen::Matrix3f contribution{ spring.stiffness * (Eigen::Matrix3f::Identity() - (d * d.transpose()) / (len * len)) };
 
-            const size_t iBase{ 3 * spring.i };
-            const size_t jBase{ 3 * spring.j };
+            //const size_t iBase{ 3 * spring.i };
+            //const size_t jBase{ 3 * spring.j };
             for (size_t row{ 0 }; row < 3; ++row)
             {
                 for (size_t col{ 0 }; col < 3; ++col)
                 {
                     const float val{ contribution(row, col) };
-                    stiffnessTriplets.emplace_back(iBase + row, iBase + col, val);
-                    stiffnessTriplets.emplace_back(jBase + row, jBase + col, val);
-                    stiffnessTriplets.emplace_back(iBase + row, jBase + col, -val);
-                    stiffnessTriplets.emplace_back(jBase + row, iBase + col, -val);
+                    stiffnessValues[index++] += val;
+                    stiffnessValues[index++] += val;
+                    stiffnessValues[index++] -= val;
+                    stiffnessValues[index++] -= val;
                 }
             }
         }
