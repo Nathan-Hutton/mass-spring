@@ -180,6 +180,9 @@ class MassSpringPlane
             m_tripletsFixedStructure.reserve(uniqueTripletSet.size());
             for (const auto& [row, col] : uniqueTripletSet)
                 m_tripletsFixedStructure.emplace_back(row, col, 0.0f);
+            m_A.setFromTriplets(m_tripletsFixedStructure.begin(), m_tripletsFixedStructure.end());
+            m_A.makeCompressed();
+            m_solver.compute(m_A);
 
             m_tripletValues.resize(m_tripletsFixedStructure.size());
 
@@ -330,21 +333,17 @@ class MassSpringPlane
 
             for (size_t i{ 0 }; i < m_tripletValues.size(); ++i)
             {
-                const auto& trip{ m_tripletsFixedStructure[i] };
-                m_tripletsFixedStructure[i] = Eigen::Triplet<float>(trip.row(), trip.col(), m_tripletValues[i]);
+                auto& trip{ m_tripletsFixedStructure[i] };
+                trip = Eigen::Triplet<float>(trip.row(), trip.col(), m_tripletValues[i]);
             }
 
             const auto thirdLoopEnd{ clock::now() };
             const auto thirdLoopElapsed{ std::chrono::duration_cast<std::chrono::microseconds>(thirdLoopEnd - thirdLoopStart).count() };
             std::cout << "thirdLoop took " << thirdLoopElapsed / 1000.0 << " ms" << std::endl;
 
-            const auto maStart{ clock::now() };
-
-            m_A.setFromTriplets(m_tripletsFixedStructure.begin(), m_tripletsFixedStructure.end());
-
-            const auto maEnd{ clock::now() };
-            const auto maElapsed{ std::chrono::duration_cast<std::chrono::microseconds>(maEnd - maStart).count() };
-            std::cout << "ma took " << maElapsed / 1000.0 << " ms" << std::endl;
+            float* values{ m_A.valuePtr() };
+            for (size_t i{ 0 }; i < m_tripletValues.size(); ++i)
+                values[i] = m_tripletValues[i];
 
             m_solver.compute(m_A);
             m_b = m_velocity + deltaTime * m_force;
