@@ -23,6 +23,7 @@ namespace Physics
         size_t i, j;
         float restLength;
         float stiffness;
+        Eigen::Matrix3f K;
     };
 
     void getForceFromGravity(const std::vector<MassPoint>& points, Eigen::VectorXf& force)
@@ -68,7 +69,11 @@ namespace Physics
             const glm::vec3 diff{ points[spring.i].position - points[spring.j].position };
             const Eigen::Vector3f d{ diff.x, diff.y, diff.z };
             const float len{ d.norm() };
-            if (len < 1e-5f) continue;
+            if (len < 1e-5f) 
+            {
+                ++index;
+                continue;
+            }
 
             const Eigen::Matrix3f K{ spring.stiffness * (Eigen::Matrix3f::Identity() - (d * d.transpose()) / (len * len)) };
 
@@ -86,47 +91,6 @@ namespace Physics
         }
     }
 
-    //void handleSpringForces(
-    //    const std::vector<Spring>& springs,
-    //    const std::vector<MassPoint>& points,
-    //    Eigen::VectorXf& force,
-    //    std::vector<float>& stiffnessValues)
-    //{
-    //    size_t index{ 0 };
-    //    for (const Physics::Spring& spring : springs)
-    //    {
-    //        const glm::vec3 diff{ points[spring.i].position - points[spring.j].position };
-    //        const Eigen::Vector3f d{ diff.x, diff.y, diff.z };
-    //        const float len{ d.norm() };
-    //        if (len < 1e-5f) continue;
-
-    //        const Eigen::Vector3f dir{ d.normalized() };
-    //        const float stretch{ len - spring.restLength };
-    //        const Eigen::Vector3f springForce{ -spring.stiffness * stretch * dir };
-
-    //        if (!points[spring.i].fixed)
-    //            force.segment<3>(3 * spring.i) += springForce;
-    //        if (!points[spring.j].fixed)
-    //            force.segment<3>(3 * spring.j) -= springForce;
-
-    //        const Eigen::Matrix3f contribution{ spring.stiffness * (Eigen::Matrix3f::Identity() - (d * d.transpose()) / (len * len)) };
-
-    //        //const size_t iBase{ 3 * spring.i };
-    //        //const size_t jBase{ 3 * spring.j };
-    //        for (size_t row{ 0 }; row < 3; ++row)
-    //        {
-    //            for (size_t col{ 0 }; col < 3; ++col)
-    //            {
-    //                const float val{ contribution(row, col) };
-    //                stiffnessValues[index++] += val;
-    //                stiffnessValues[index++] += val;
-    //                stiffnessValues[index++] -= val;
-    //                stiffnessValues[index++] -= val;
-    //            }
-    //        }
-    //    }
-    //}
-
     void setNewPoints(std::vector<MassPoint>& points, const Eigen::VectorXf& vNext, float deltaTime)
     {
         for (size_t i{ 0 }; i < points.size(); ++i)
@@ -143,8 +107,6 @@ namespace Physics
                 points[i].velocity *= 1.0f / speed;
 
             points[i].position += points[i].velocity * deltaTime;
-            //if (points[i].position.y < -8.0f)
-                //points[i].position.y = -8.0f;
         }
     }
 }

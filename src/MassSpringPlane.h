@@ -43,14 +43,44 @@ class MassSpringPlane
                     if (i < resolution)
                     {
                         const size_t nextIndex{ index + 1 };
-                        m_springs.push_back({index, nextIndex, glm::distance(m_points[index].position, m_points[nextIndex].position), m_stiffness});
+                        const Eigen::Vector3f pi(
+                            m_points[index].position.x,
+                            m_points[index].position.y,
+                            m_points[index].position.z);
+
+                        const Eigen::Vector3f pj(
+                            m_points[nextIndex].position.x,
+                            m_points[nextIndex].position.y,
+                            m_points[nextIndex].position.z);
+
+                        const Eigen::Vector3f d = pi - pj;
+                        const float len = d.norm();
+
+                        const Eigen::Matrix3f outer = (d / len) * (d / len).transpose();
+                        const Eigen::Matrix3f K = m_stiffness * (Eigen::Matrix3f::Identity() - outer);
+                        m_springs.push_back({index, nextIndex, glm::distance(m_points[index].position, m_points[nextIndex].position), m_stiffness, K});
                     }
 
                     // Vertical
                     if (j < resolution)
                     {
                         const size_t nextIndex{ (j + 1) * numPointsPerSide + i };
-                        m_springs.push_back({index, nextIndex, glm::distance(m_points[index].position, m_points[nextIndex].position), m_stiffness});
+                        const Eigen::Vector3f pi(
+                            m_points[index].position.x,
+                            m_points[index].position.y,
+                            m_points[index].position.z);
+
+                        const Eigen::Vector3f pj(
+                            m_points[nextIndex].position.x,
+                            m_points[nextIndex].position.y,
+                            m_points[nextIndex].position.z);
+
+                        const Eigen::Vector3f d = pi - pj;
+                        const float len = d.norm();
+
+                        const Eigen::Matrix3f outer = (d / len) * (d / len).transpose();
+                        const Eigen::Matrix3f K = m_stiffness * (Eigen::Matrix3f::Identity() - outer);
+                        m_springs.push_back({index, nextIndex, glm::distance(m_points[index].position, m_points[nextIndex].position), m_stiffness, K});
                     }
 
                     // Diagonals
@@ -58,60 +88,52 @@ class MassSpringPlane
                     {
                         // Connection from index to i+1, j+1
                         const size_t bottomRight{ (j + 1) * numPointsPerSide + (i + 1) };
-                        m_springs.push_back({index, bottomRight, glm::distance(m_points[index].position, m_points[bottomRight].position), m_stiffness});
+                        {
+                            const Eigen::Vector3f pi(
+                                m_points[index].position.x,
+                                m_points[index].position.y,
+                                m_points[index].position.z);
+
+                            const Eigen::Vector3f pj(
+                                m_points[bottomRight].position.x,
+                                m_points[bottomRight].position.y,
+                                m_points[bottomRight].position.z);
+
+                            const Eigen::Vector3f d = pi - pj;
+                            const float len = d.norm();
+
+                            const Eigen::Matrix3f outer = (d / len) * (d / len).transpose();
+                            const Eigen::Matrix3f K = m_stiffness * (Eigen::Matrix3f::Identity() - outer);
+                            m_springs.push_back({index, bottomRight, glm::distance(m_points[index].position, m_points[bottomRight].position), m_stiffness, K});
+                        }
 
                         // Connection from bottom i+1, j to i,j+1
                         const size_t upperRight{ j * numPointsPerSide + (i + 1) };
                         const size_t bottomLeft{ (j + 1) * numPointsPerSide + i };
-                        m_springs.push_back({upperRight, bottomLeft, glm::distance(m_points[upperRight].position, m_points[bottomLeft].position), m_stiffness});
+                        {
+                            const Eigen::Vector3f pi(
+                                m_points[upperRight].position.x,
+                                m_points[upperRight].position.y,
+                                m_points[upperRight].position.z);
+
+                            const Eigen::Vector3f pj(
+                                m_points[bottomLeft].position.x,
+                                m_points[bottomLeft].position.y,
+                                m_points[bottomLeft].position.z);
+
+                            const Eigen::Vector3f d = pi - pj;
+                            const float len = d.norm();
+
+                            const Eigen::Matrix3f outer = (d / len) * (d / len).transpose();
+                            const Eigen::Matrix3f K = m_stiffness * (Eigen::Matrix3f::Identity() - outer);
+                            m_springs.push_back({upperRight, bottomLeft, glm::distance(m_points[upperRight].position, m_points[bottomLeft].position), m_stiffness, K});
+                        }
                     }
                 }
             }
 
-            // Precompute triplet indices
-            for (const Physics::Spring& spring : m_springs)
-            {
-                const int iBase = 3 * spring.i;
-                const int jBase = 3 * spring.j;
-
-                for (int row = 0; row < 3; ++row)
-                {
-                    for (int col = 0; col < 3; ++col)
-                    {
-                        m_stiffnessTripletIndices.emplace_back(iBase + row, iBase + col);
-                        m_stiffnessTripletIndices.emplace_back(jBase + row, jBase + col);
-                        m_stiffnessTripletIndices.emplace_back(iBase + row, jBase + col);
-                        m_stiffnessTripletIndices.emplace_back(jBase + row, iBase + col);
-                    }
-                }
-            }
-
-            m_stiffnessValues.resize(m_stiffnessTripletIndices.size());
             m_degreesOfFreedom = m_points.size() * 3;
-
-            {
-                m_A.resize(m_degreesOfFreedom, m_degreesOfFreedom);
-
-                std::vector<Eigen::Triplet<float>> dummyTriplets;
-                for (const auto& [row, col] : m_stiffnessTripletIndices)
-                    dummyTriplets.emplace_back(row, col, 0.0f);
-
-                //for (int i{ 0 }; i < m_degreesOfFreedom; ++i)
-                    //dummyTriplets.emplace_back(i, i, 0.0f);
-
-                m_A.setFromTriplets(dummyTriplets.begin(), dummyTriplets.end());
-            }
-
-            // Damping matrix
-            {
-                m_dampingMatrix.resize(m_degreesOfFreedom, m_degreesOfFreedom);
-                std::vector<Eigen::Triplet<float>> triplets;
-
-                constexpr float dampingCoefficient{ 0.4f };
-                for (int i{ 0 }; i < m_degreesOfFreedom; ++i)
-                    triplets.emplace_back(i, i, dampingCoefficient);
-                m_dampingMatrix.setFromTriplets(triplets.begin(), triplets.end());
-            }
+            m_A.resize(m_degreesOfFreedom, m_degreesOfFreedom);
 
             m_solver.setMaxIterations(100);
             m_solver.setTolerance(1e-5);
@@ -189,28 +211,55 @@ class MassSpringPlane
             Physics::getForceFromGravity(m_points, force);
             Physics::getSpringForces(m_springs, m_points, force);
 
-            std::fill(m_stiffnessValues.begin(), m_stiffnessValues.end(), 0.0f); // restore this!
-            Physics::accumulateStiffnessValues(m_springs, m_points, m_stiffnessValues);
-
             std::vector<Eigen::Triplet<float>> triplets;
-            const float epsilon = 1e-4f + 0.001f * m_stiffness;
+            const float epsilon{ 1e-4f + 0.001f * m_stiffness };
             constexpr float massDampingCoef{ 0.5f };
 
-            for (int i = 0; i < m_degreesOfFreedom; ++i)
+            // Mass + damping diagonal
+            for (int i{ 0 }; i < m_degreesOfFreedom; ++i)
                 triplets.emplace_back(i, i, 1.0f + epsilon + deltaTime * massDampingCoef);
 
-            for (size_t i = 0; i < m_stiffnessTripletIndices.size(); ++i)
+             // Add stiffness contributions per spring (directly to triplets)
+            for (const auto& spring : m_springs)
             {
-                const auto& [row, col] = m_stiffnessTripletIndices[i];
-                triplets.emplace_back(row, col, -deltaTime * deltaTime * m_stiffnessValues[i]);
+                if (m_points[spring.i].fixed && m_points[spring.j].fixed)
+                    continue;
+
+                const glm::vec3 pi_glm{ m_points[spring.i].position };
+                const glm::vec3 pj_glm{ m_points[spring.j].position };
+
+                const Eigen::Vector3f pi{ pi_glm.x, pi_glm.y, pi_glm.z };
+                const Eigen::Vector3f pj{ pj_glm.x, pj_glm.y, pj_glm.z };
+
+                const Eigen::Vector3f d{ pi - pj };
+                const float len{ d.norm() };
+                if (len < 1e-5f) continue;
+
+                const Eigen::Matrix3f K{ spring.K };
+
+                const int iBase{ 3 * static_cast<int>(spring.i) };
+                const int jBase{ 3 * static_cast<int>(spring.j) };
+
+                for (int row{ 0 }; row < 3; ++row)
+                {
+                    for (int col{ 0 }; col < 3; ++col)
+                    {
+                        const float val{ -deltaTime * deltaTime * K(row, col) };
+
+                        triplets.emplace_back(iBase + row, iBase + col, +val); // i-i
+                        triplets.emplace_back(jBase + row, jBase + col, +val); // j-j
+                        triplets.emplace_back(iBase + row, jBase + col, -val); // i-j
+                        triplets.emplace_back(jBase + row, iBase + col, -val); // j-i
+                    }
+                }
             }
 
             m_A.setFromTriplets(triplets.begin(), triplets.end(),
                 [](const float& a, const float& b) { return a + b; });
 
             m_solver.compute(m_A);
-            const Eigen::VectorXf b = velocity + deltaTime * force;
-            const Eigen::VectorXf vNext = m_solver.solve(b);
+            const Eigen::VectorXf b{ velocity + deltaTime * force };
+            const Eigen::VectorXf vNext{ m_solver.solve(b) };
 
             Physics::setNewPoints(m_points, vNext, deltaTime);
             updateVBO();
@@ -231,8 +280,5 @@ class MassSpringPlane
         int m_degreesOfFreedom{};
         float m_stiffness{ 200.0f };
         Eigen::SparseMatrix<float> m_A;
-        Eigen::SparseMatrix<float> m_dampingMatrix;
         Eigen::BiCGSTAB<Eigen::SparseMatrix<float>, Eigen::DiagonalPreconditioner<float>> m_solver;
-        std::vector<std::pair<int, int>> m_stiffnessTripletIndices;
-        std::vector<float> m_stiffnessValues;
 };
