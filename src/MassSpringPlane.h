@@ -177,28 +177,25 @@ class MassSpringPlane
                 }
             }
 
-            m_tripletsFixedStructure.reserve(uniqueTripletSet.size());
+            std::vector<Eigen::Triplet<float>> triplets;
+            triplets.reserve(uniqueTripletSet.size());
             for (const auto& [row, col] : uniqueTripletSet)
-                m_tripletsFixedStructure.emplace_back(row, col, 0.0f);
-            m_A.setFromTriplets(m_tripletsFixedStructure.begin(), m_tripletsFixedStructure.end());
+                triplets.emplace_back(row, col, 0.0f);
+
+            m_A.setFromTriplets(triplets.begin(), triplets.end());
             m_A.makeCompressed();
             m_solver.compute(m_A);
 
-            m_tripletValues.resize(m_tripletsFixedStructure.size());
+            m_tripletValues.resize(triplets.size());
 
-            {
-                std::vector<TripletInfo> tripletIndexList;
-                tripletIndexList.reserve(m_tripletsFixedStructure.size());
-                for (size_t i{ 0 }; i < m_tripletsFixedStructure.size(); ++i)
-                {
-                    const auto& triplet{ m_tripletsFixedStructure[i] };
-                    tripletIndexList.push_back({ triplet.row(), triplet.col(), i });
-                }
+            std::vector<TripletInfo> tripletIndexList;
+            tripletIndexList.reserve(triplets.size());
+            for (size_t i{ 0 }; i < triplets.size(); ++i)
+                tripletIndexList.push_back({ triplets[i].row(), triplets[i].col(), i });
 
-                m_indexGrid.resize(m_degreesOfFreedom * m_degreesOfFreedom, static_cast<size_t>(-1));
-                for (const auto& t : tripletIndexList)
-                    m_indexGrid[t.row * m_degreesOfFreedom + t.col] = t.index;
-            }
+            m_indexGrid.resize(m_degreesOfFreedom * m_degreesOfFreedom, static_cast<size_t>(-1));
+            for (const auto& t : tripletIndexList)
+                m_indexGrid[t.row * m_degreesOfFreedom + t.col] = t.index;
 
             m_solver.setMaxIterations(50);
             m_solver.setTolerance(1e-1);
@@ -306,31 +303,31 @@ class MassSpringPlane
                 const float dx = m_points[spring.i].position.x - m_points[spring.j].position.x;
                 const float dy = m_points[spring.i].position.y - m_points[spring.j].position.y;
                 const float dz = m_points[spring.i].position.z - m_points[spring.j].position.z;
-                const float len{ std::sqrt(dx * dx + dy * dy + dz * dz) };
-                if (len < 1e-5f) continue;
+                const float len2{ dx*dx + dy*dy + dz*dz };
+                if (len2 < 1e-10f) continue;
 
-                const size_t iBase{ 3 * spring.i };
-                const size_t jBase{ 3 * spring.j };
-
-                for (size_t row{ 0 }; row < 3; ++row)
+                for (size_t d{ 0 }; d < 3; ++d)
                 {
-                    for (size_t col{ 0 }; col < 3; ++col)
+                    // Unroll column loop inside here
+                    const size_t iRow{ 3 * spring.i + d };
+                    const size_t jRow{ 3 * spring.j + d };
+
+                    for (size_t e{ 0 }; e < 3; ++e)
                     {
-                        const size_t iRow{ iBase + row };
-                        const size_t jRow{ jBase + row };
-                        const size_t iCol{ iBase + col };
-                        const size_t jCol{ jBase + col };
-                        const size_t iRow_iCol{ m_indexGrid[iRow * m_degreesOfFreedom + iCol] };
-                        const size_t jRow_jCol{ m_indexGrid[jRow * m_degreesOfFreedom + jCol] };
-                        const size_t iRow_jCol{ m_indexGrid[iRow * m_degreesOfFreedom + jCol] };
-                        const size_t jRow_iCol{ m_indexGrid[jRow * m_degreesOfFreedom + iCol] };
+                        const size_t iCol{ 3 * spring.i + e };
+                        const size_t jCol{ 3 * spring.j + e };
 
-                        const float val{ dt2 * spring.K(row, col) };
+                        const size_t i_i{ m_indexGrid[iRow * m_degreesOfFreedom + iCol] };
+                        const size_t j_j{ m_indexGrid[jRow * m_degreesOfFreedom + jCol] };
+                        const size_t i_j{ m_indexGrid[iRow * m_degreesOfFreedom + jCol] };
+                        const size_t j_i{ m_indexGrid[jRow * m_degreesOfFreedom + iCol] };
 
-                        m_tripletValues[iRow_iCol] += val;
-                        m_tripletValues[jRow_jCol] += val;
-                        m_tripletValues[iRow_jCol] -= val;
-                        m_tripletValues[jRow_iCol] -= val;
+                        const float val{ dt2 * spring.K(d, e) };
+
+                        m_tripletValues[i_i] += val;
+                        m_tripletValues[j_j] += val;
+                        m_tripletValues[i_j] -= val;
+                        m_tripletValues[j_i] -= val;
                     }
                 }
             }
@@ -338,25 +335,15 @@ class MassSpringPlane
             const auto secondLoopElapsed{ std::chrono::duration_cast<std::chrono::microseconds>(secondLoopEnd - secondLoopStart).count() };
             std::cout << "secondLoop took " << secondLoopElapsed / 1000.0 << " ms" << std::endl;
 
-            const auto thirdLoopStart{ clock::now() };
-
-            for (size_t i{ 0 }; i < m_tripletValues.size(); ++i)
-            {
-                auto& trip{ m_tripletsFixedStructure[i] };
-                trip = Eigen::Triplet<float>(trip.row(), trip.col(), m_tripletValues[i]);
-            }
-
-            const auto thirdLoopEnd{ clock::now() };
-            const auto thirdLoopElapsed{ std::chrono::duration_cast<std::chrono::microseconds>(thirdLoopEnd - thirdLoopStart).count() };
-            std::cout << "thirdLoop took " << thirdLoopElapsed / 1000.0 << " ms" << std::endl;
-
             float* values{ m_A.valuePtr() };
             for (size_t i{ 0 }; i < m_tripletValues.size(); ++i)
                 values[i] = m_tripletValues[i];
 
             const auto solveStart{ clock::now() };
 
-            m_solver.factorize(m_A);
+            // I commented this out because right now it's not doing anyting
+            // But in the future I might want to call this once every 20 frames or something to keep things stable
+            //m_solver.factorize(m_A);
             m_b = m_velocity + deltaTime * m_force;
             m_vNext = m_solver.solveWithGuess(m_b, m_velocity);
 
@@ -393,7 +380,6 @@ class MassSpringPlane
         Eigen::VectorXf m_velocity;
         Eigen::VectorXf m_b;
         Eigen::VectorXf m_vNext;
-        std::vector<Eigen::Triplet<float>> m_tripletsFixedStructure;
         std::vector<float> m_tripletValues;
         std::vector<size_t> m_indexGrid;
 };
