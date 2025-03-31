@@ -308,14 +308,13 @@ class MassSpringPlane
                 if (m_points[spring.i].fixed && m_points[spring.j].fixed)
                     continue;
 
-                const glm::vec3 pi_glm{ m_points[spring.i].position };
-                const glm::vec3 pj_glm{ m_points[spring.j].position };
+                const glm::vec3 pi{ m_points[spring.i].position };
+                const glm::vec3 pj{ m_points[spring.j].position };
 
-                const Eigen::Vector3f pi{ pi_glm.x, pi_glm.y, pi_glm.z };
-                const Eigen::Vector3f pj{ pj_glm.x, pj_glm.y, pj_glm.z };
-
-                const Eigen::Vector3f d{ pi - pj };
-                const float len{ d.norm() };
+                const float dx{ pi.x - pj.x };
+                const float dy{ pi.y - pj.y };
+                const float dz{ pi.z - pj.z };
+                const float len{ std::sqrt(dx * dx + dy * dy + dz * dz) };
                 if (len < 1e-5f) continue;
 
                 const Eigen::Matrix3f K{ spring.K };
