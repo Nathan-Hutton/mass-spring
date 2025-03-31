@@ -25,8 +25,10 @@ class MassSpringPlane
         MassSpringPlane(float width, size_t resolution=1)
         {
             const size_t numPointsPerSide{ resolution + 1 };
+            m_points.resize(numPointsPerSide * numPointsPerSide);
 
             // Make mass spring points
+            size_t index{ 0 };
             for (size_t j{ 0 }; j < numPointsPerSide; ++j)
             {
                 float y{ glm::mix(-width, width, static_cast<float>(j) / resolution) };
@@ -35,7 +37,9 @@ class MassSpringPlane
                     float x{ glm::mix(-width, width, static_cast<float>(i) / resolution) };
                     glm::vec3 pos{ x, y, 0.0f };
                     const bool fixed{ j == resolution && (i == 0 || i == resolution) };
-                    m_points.push_back({ pos, glm::vec3{ 0.0f }, glm::vec3{ 0.0f }, fixed });
+
+                    Physics::MassPoint point{ pos, glm::vec3{ 0.0f }, fixed };
+                    m_points[index++] = point;
                 }
             }
 

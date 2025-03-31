@@ -10,13 +10,20 @@
 
 namespace Physics
 {
-    struct MassPoint
-    {
-        glm::vec3 position;
-        glm::vec3 velocity;
-        const glm::vec3 force;
-        const bool fixed;
-    };
+struct MassPoint {
+    glm::vec3 position;
+    glm::vec3 velocity;
+    bool fixed;
+
+    MassPoint() = default;
+    MassPoint(const glm::vec3& pos, const glm::vec3& vel, bool isFixed)
+        : position(pos), velocity(vel), fixed(isFixed) {}
+
+    MassPoint(const MassPoint&) = default;
+    MassPoint(MassPoint&&) noexcept = default;
+    MassPoint& operator=(const MassPoint&) = default;
+    MassPoint& operator=(MassPoint&&) noexcept = default;
+};
 
     struct Spring
     {
