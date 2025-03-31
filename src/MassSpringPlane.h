@@ -262,10 +262,6 @@ class MassSpringPlane
 
         void updatePhysics(float deltaTime)
         {
-            const auto get_idx = [&](int row, int col) -> size_t {
-                return m_indexGrid[row * m_degreesOfFreedom + col];
-            };
-
             using clock = std::chrono::high_resolution_clock;
             const auto start{ clock::now() };
 
@@ -298,11 +294,12 @@ class MassSpringPlane
 
             // Mass + damping diagonal
             for (int i{ 0 }; i < m_degreesOfFreedom; ++i)
-                m_tripletValues[get_idx(i, i)] = massDampingDiagonal;
+                m_tripletValues[m_indexGrid[i * m_degreesOfFreedom + i]] = massDampingDiagonal;
 
              // Add stiffness contributions per spring (directly to triplets)
             const auto secondLoopStart{ clock::now() };
 
+            const float dt2{ -deltaTime * deltaTime };
             for (const auto& spring : m_springs)
             {
                 if (m_points[spring.i].fixed && m_points[spring.j].fixed)
@@ -326,12 +323,12 @@ class MassSpringPlane
                 {
                     for (int col{ 0 }; col < 3; ++col)
                     {
-                        const float val{ -deltaTime * deltaTime * K(row, col) };
+                        const float val{ dt2 * K(row, col) };
 
-                        m_tripletValues[get_idx(iBase + row, iBase + col)] += +val; // i-i
-                        m_tripletValues[get_idx(jBase + row, jBase + col)] += +val; // i-i
-                        m_tripletValues[get_idx(iBase + row, jBase + col)] -= +val; // i-i
-                        m_tripletValues[get_idx(jBase + row, iBase + col)] -= +val; // i-i
+                        m_tripletValues[m_indexGrid[(iBase + row) * m_degreesOfFreedom + (iBase + col)]] += val;
+                        m_tripletValues[m_indexGrid[(jBase + row) * m_degreesOfFreedom + (jBase + col)]] += val;
+                        m_tripletValues[m_indexGrid[(iBase + row) * m_degreesOfFreedom + (jBase + col)]] -= val;
+                        m_tripletValues[m_indexGrid[(jBase + row) * m_degreesOfFreedom + (iBase + col)]] -= val;
                     }
                 }
             }
