@@ -279,14 +279,18 @@ class MassSpringPlane
                     m_points[i].velocity.z);
             }
 
-            const auto forcesStart{ clock::now() };
-
+            const auto gravityStart{ clock::now() };
             Physics::getForceFromGravity(m_points, m_force);
-            Physics::getSpringForces(m_springs, m_points, m_force);
+            const auto gravityEnd{ clock::now() };
+            const auto gravityElapsed{ std::chrono::duration_cast<std::chrono::microseconds>(gravityEnd - gravityStart).count() };
+            std::cout << "gravity took " << gravityElapsed / 1000.0 << " ms" << std::endl;
 
-            const auto forcesEnd{ clock::now() };
-            const auto forcesElapsed{ std::chrono::duration_cast<std::chrono::microseconds>(forcesEnd - forcesStart).count() };
-            std::cout << "forces took " << forcesElapsed / 1000.0 << " ms" << std::endl;
+            const auto springForcesStart{ clock::now() };
+            Physics::getSpringForces(m_springs, m_points, m_force);
+            const auto springForcesEnd{ clock::now() };
+            const auto springForcesElapsed{ std::chrono::duration_cast<std::chrono::microseconds>(springForcesEnd - springForcesStart).count() };
+            std::cout << "springForces took " << springForcesElapsed / 1000.0 << " ms" << std::endl;
+
 
             const float epsilon{ 1e-4f + 0.001f * m_stiffness };
             constexpr float massDampingCoef{ 0.5f };

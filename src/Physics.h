@@ -42,19 +42,19 @@ namespace Physics
     {
         for (const Spring& spring : springs)
         {
-            const glm::vec3 diff = points[spring.i].position - points[spring.j].position;
+            const glm::vec3 diff{ points[spring.i].position - points[spring.j].position };
             const Eigen::Vector3f d(diff.x, diff.y, diff.z);
-            const float len = d.norm();
+            const float len{ d.norm() };
             if (len < 1e-5f) continue;
 
-            const Eigen::Vector3f dir = d / len;
-            const float stretch = len - spring.restLength;
-            const Eigen::Vector3f f = -spring.stiffness * stretch * dir;
+            const Eigen::Vector3f dir{ d / len };
+            const float stretch{ len - spring.restLength };
+            const Eigen::Vector3f f{ -spring.stiffness * stretch * dir };
 
             if (!points[spring.i].fixed)
-                force.block<3, 1>(3 * spring.i, 0) += f;
+                force.segment<3>(3 * spring.i) += f;
             if (!points[spring.j].fixed)
-                force.block<3, 1>(3 * spring.j, 0) -= f;
+                force.segment<3>(3 * spring.j) -= f;
         }
     }
 
