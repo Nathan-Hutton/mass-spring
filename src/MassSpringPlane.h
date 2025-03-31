@@ -201,7 +201,7 @@ class MassSpringPlane
             }
 
             m_solver.setMaxIterations(50);
-            m_solver.setTolerance(1e-4);
+            m_solver.setTolerance(1e-1);
 
             // Handle indices
             for (size_t j{ 0 }; j < resolution; ++j)
