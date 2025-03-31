@@ -12,6 +12,13 @@ struct TripletInfo {
     size_t index;
 };
 
+struct SpringStiffnessIndices {
+    std::array<std::array<size_t, 3>, 3> i_i;
+    std::array<std::array<size_t, 3>, 3> j_j;
+    std::array<std::array<size_t, 3>, 3> i_j;
+    std::array<std::array<size_t, 3>, 3> j_i;
+};
+
 class MassSpringPlane
 {
     public:
@@ -191,6 +198,33 @@ class MassSpringPlane
             m_solver.setMaxIterations(50);
             m_solver.setTolerance(1e-1);
 
+            m_springIndices.clear();
+            m_springIndices.reserve(m_springs.size());
+
+            for (const auto& spring : m_springs)
+            {
+                SpringStiffnessIndices indices;
+
+                for (size_t d{ 0 }; d < 3; ++d)
+                {
+                    const size_t iRow{ 3 * spring.i + d };
+                    const size_t jRow{ 3 * spring.j + d };
+
+                    for (size_t e{ 0 }; e < 3; ++e)
+                    {
+                        const size_t iCol{ 3 * spring.i + e };
+                        const size_t jCol{ 3 * spring.j + e };
+
+                        indices.i_i[d][e] = m_indexGrid[iRow * m_degreesOfFreedom + iCol];
+                        indices.j_j[d][e] = m_indexGrid[jRow * m_degreesOfFreedom + jCol];
+                        indices.i_j[d][e] = m_indexGrid[iRow * m_degreesOfFreedom + jCol];
+                        indices.j_i[d][e] = m_indexGrid[jRow * m_degreesOfFreedom + iCol];
+                    }
+                }
+
+                m_springIndices.push_back(indices);
+            }
+
             // Handle indices
             for (size_t j{ 0 }; j < resolution; ++j)
             {
@@ -286,8 +320,9 @@ class MassSpringPlane
             const auto secondLoopStart{ clock::now() };
 
             const float dt2{ -deltaTime * deltaTime };
-            for (const auto& spring : m_springs)
+            for (size_t i{ 0 }; i < m_springs.size(); ++i)
             {
+                const Physics::Spring& spring{ m_springs[i] };
                 if (m_points[spring.i].fixed && m_points[spring.j].fixed)
                     continue;
 
@@ -297,31 +332,21 @@ class MassSpringPlane
                 const float len2{ dx*dx + dy*dy + dz*dz };
                 if (len2 < 1e-10f) continue;
 
+                const SpringStiffnessIndices& indices{ m_springIndices[i] };
                 for (size_t d{ 0 }; d < 3; ++d)
                 {
-                    // Unroll column loop inside here
-                    const size_t iRow{ 3 * spring.i + d };
-                    const size_t jRow{ 3 * spring.j + d };
-
                     for (size_t e{ 0 }; e < 3; ++e)
                     {
-                        const size_t iCol{ 3 * spring.i + e };
-                        const size_t jCol{ 3 * spring.j + e };
-
-                        const size_t i_i{ m_indexGrid[iRow * m_degreesOfFreedom + iCol] };
-                        const size_t j_j{ m_indexGrid[jRow * m_degreesOfFreedom + jCol] };
-                        const size_t i_j{ m_indexGrid[iRow * m_degreesOfFreedom + jCol] };
-                        const size_t j_i{ m_indexGrid[jRow * m_degreesOfFreedom + iCol] };
-
                         const float val{ dt2 * spring.K(d, e) };
 
-                        m_tripletValues[i_i] += val;
-                        m_tripletValues[j_j] += val;
-                        m_tripletValues[i_j] -= val;
-                        m_tripletValues[j_i] -= val;
+                        m_tripletValues[indices.i_i[d][e]] += val;
+                        m_tripletValues[indices.j_j[d][e]] += val;
+                        m_tripletValues[indices.i_j[d][e]] -= val;
+                        m_tripletValues[indices.j_i[d][e]] -= val;
                     }
                 }
             }
+
             const auto secondLoopEnd{ clock::now() };
             const auto secondLoopElapsed{ std::chrono::duration_cast<std::chrono::microseconds>(secondLoopEnd - secondLoopStart).count() };
             std::cout << "secondLoop took " << secondLoopElapsed / 1000.0 << " ms" << std::endl;
@@ -373,4 +398,5 @@ class MassSpringPlane
         Eigen::VectorXf m_vNext;
         std::vector<float> m_tripletValues;
         std::vector<size_t> m_indexGrid;
+        std::vector<SpringStiffnessIndices> m_springIndices;
 };
