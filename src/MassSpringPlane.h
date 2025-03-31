@@ -200,8 +200,8 @@ class MassSpringPlane
                     m_indexGrid[t.row * m_degreesOfFreedom + t.col] = t.index;
             }
 
-            m_solver.setMaxIterations(100);
-            m_solver.setTolerance(1e-5);
+            m_solver.setMaxIterations(50);
+            m_solver.setTolerance(1e-4);
 
             // Handle indices
             for (size_t j{ 0 }; j < resolution; ++j)
@@ -279,15 +279,22 @@ class MassSpringPlane
                     m_points[i].velocity.z);
             }
 
+            const auto forcesStart{ clock::now() };
+
             Physics::getForceFromGravity(m_points, m_force);
             Physics::getSpringForces(m_springs, m_points, m_force);
 
+            const auto forcesEnd{ clock::now() };
+            const auto forcesElapsed{ std::chrono::duration_cast<std::chrono::microseconds>(forcesEnd - forcesStart).count() };
+            std::cout << "forces took " << forcesElapsed / 1000.0 << " ms" << std::endl;
+
             const float epsilon{ 1e-4f + 0.001f * m_stiffness };
             constexpr float massDampingCoef{ 0.5f };
+            const float massDampingDiagonal{ 1.0f + epsilon + deltaTime * massDampingCoef };
 
             // Mass + damping diagonal
             for (int i{ 0 }; i < m_degreesOfFreedom; ++i)
-                m_tripletValues[get_idx(i, i)] = 1.0f + epsilon + deltaTime * massDampingCoef;
+                m_tripletValues[get_idx(i, i)] = massDampingDiagonal;
 
              // Add stiffness contributions per spring (directly to triplets)
             const auto secondLoopStart{ clock::now() };
@@ -345,9 +352,15 @@ class MassSpringPlane
             for (size_t i{ 0 }; i < m_tripletValues.size(); ++i)
                 values[i] = m_tripletValues[i];
 
-            m_solver.compute(m_A);
+            const auto solveStart{ clock::now() };
+
+            m_solver.factorize(m_A);
             m_b = m_velocity + deltaTime * m_force;
-            m_vNext = m_solver.solve(m_b);
+            m_vNext = m_solver.solveWithGuess(m_b, m_velocity);
+
+            const auto solveEnd{ clock::now() };
+            const auto solveElapsed{ std::chrono::duration_cast<std::chrono::microseconds>(solveEnd - solveStart).count() };
+            std::cout << "solve took " << solveElapsed / 1000.0 << " ms" << std::endl;
 
             Physics::setNewPoints(m_points, m_vNext, deltaTime);
             updateVBO();
@@ -372,7 +385,8 @@ class MassSpringPlane
         int m_degreesOfFreedom{};
         float m_stiffness{ 200.0f };
         Eigen::SparseMatrix<float> m_A;
-        Eigen::BiCGSTAB<Eigen::SparseMatrix<float>, Eigen::DiagonalPreconditioner<float>> m_solver;
+        //Eigen::BiCGSTAB<Eigen::SparseMatrix<float>, Eigen::DiagonalPreconditioner<float>> m_solver;
+        Eigen::ConjugateGradient<Eigen::SparseMatrix<float>, Eigen::Lower|Eigen::Upper, Eigen::DiagonalPreconditioner<float>> m_solver;
         Eigen::VectorXf m_force;
         Eigen::VectorXf m_velocity;
         Eigen::VectorXf m_b;
