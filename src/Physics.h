@@ -42,19 +42,37 @@ namespace Physics
     {
         for (const Spring& spring : springs)
         {
-            const glm::vec3 diff{ points[spring.i].position - points[spring.j].position };
-            const Eigen::Vector3f d(diff.x, diff.y, diff.z);
-            const float len{ d.norm() };
+            const MassPoint& pi{ points[spring.i] };
+            const MassPoint& pj{ points[spring.j] };
+            if (pi.fixed && pj.fixed) continue;
+
+            const float dx{ pi.position.x - pj.position.x };
+            const float dy{ pi.position.y - pj.position.y };
+            const float dz{ pi.position.z - pj.position.z };
+
+            const float len{ std::sqrt(dx * dx + dy * dy + dz * dz) };
             if (len < 1e-5f) continue;
 
-            const Eigen::Vector3f dir{ d / len };
+            const float invLen{ 1.0f / len };
             const float stretch{ len - spring.restLength };
-            const Eigen::Vector3f f{ -spring.stiffness * stretch * dir };
+            const float kStretch{ -spring.stiffness * stretch * invLen };
 
-            if (!points[spring.i].fixed)
-                force.segment<3>(3 * spring.i) += f;
-            if (!points[spring.j].fixed)
-                force.segment<3>(3 * spring.j) -= f;
+            const float fx{ kStretch * dx };
+            const float fy{ kStretch * dy };
+            const float fz{ kStretch * dz };
+
+            if (!pi.fixed)
+            {
+                force[3 * spring.i] += fx;
+                force[3 * spring.i + 1] += fy;
+                force[3 * spring.i + 2] += fz;
+            }
+            if (!pj.fixed)
+            {
+                force[3 * spring.j] -= fx;
+                force[3 * spring.j + 1] -= fy;
+                force[3 * spring.j + 2] -= fz;
+            }
         }
     }
 
