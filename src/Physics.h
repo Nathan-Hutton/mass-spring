@@ -28,13 +28,12 @@ namespace Physics
 
     void getForceFromGravity(const std::vector<MassPoint>& points, Eigen::VectorXf& force)
     {
-        const Eigen::Vector3f gravity{ 0.0f, -9.81f, 0.0f };
         for (size_t i{ 0 }; i < points.size(); ++i)
         {
             if (points[i].fixed)
                 continue;
 
-            force.block<3, 1>(3 * i, 0) = gravity;
+            force[3 * i + 1] -= 9.81f;
         }
     }
 

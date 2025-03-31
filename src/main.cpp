@@ -65,7 +65,7 @@ int main()
     compileShaders();
 
     // Handle objects
-    MassSpringPlane massSpringPlane{ 5.0f, 50 };
+    MassSpringPlane massSpringPlane{ 5.0f, 100 };
     const CollisionPlane collisionPlane{ 10.0f, -8.0f };
 
     // ****************
@@ -97,7 +97,7 @@ int main()
         const GLfloat deltaTime{ currentTime - lastUpdateTime };
         lastUpdateTime = currentTime;
         accumulator += deltaTime;
-        accumulator = std::min(accumulator, 0.25f);
+        accumulator = std::min(accumulator, 0.35f);
 
         while (accumulator >= fixedDeltaTime)
         {

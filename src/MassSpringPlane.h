@@ -305,30 +305,34 @@ class MassSpringPlane
                 if (m_points[spring.i].fixed && m_points[spring.j].fixed)
                     continue;
 
-                const glm::vec3 pi{ m_points[spring.i].position };
-                const glm::vec3 pj{ m_points[spring.j].position };
-
-                const float dx{ pi.x - pj.x };
-                const float dy{ pi.y - pj.y };
-                const float dz{ pi.z - pj.z };
+                const float dx = m_points[spring.i].position.x - m_points[spring.j].position.x;
+                const float dy = m_points[spring.i].position.y - m_points[spring.j].position.y;
+                const float dz = m_points[spring.i].position.z - m_points[spring.j].position.z;
                 const float len{ std::sqrt(dx * dx + dy * dy + dz * dz) };
                 if (len < 1e-5f) continue;
 
-                const Eigen::Matrix3f K{ spring.K };
+                const size_t iBase{ 3 * spring.i };
+                const size_t jBase{ 3 * spring.j };
 
-                const int iBase{ 3 * static_cast<int>(spring.i) };
-                const int jBase{ 3 * static_cast<int>(spring.j) };
-
-                for (int row{ 0 }; row < 3; ++row)
+                for (size_t row{ 0 }; row < 3; ++row)
                 {
-                    for (int col{ 0 }; col < 3; ++col)
+                    for (size_t col{ 0 }; col < 3; ++col)
                     {
-                        const float val{ dt2 * K(row, col) };
+                        const size_t iRow{ iBase + row };
+                        const size_t jRow{ jBase + row };
+                        const size_t iCol{ iBase + col };
+                        const size_t jCol{ jBase + col };
+                        const size_t iRow_iCol{ m_indexGrid[iRow * m_degreesOfFreedom + iCol] };
+                        const size_t jRow_jCol{ m_indexGrid[jRow * m_degreesOfFreedom + jCol] };
+                        const size_t iRow_jCol{ m_indexGrid[iRow * m_degreesOfFreedom + jCol] };
+                        const size_t jRow_iCol{ m_indexGrid[jRow * m_degreesOfFreedom + iCol] };
 
-                        m_tripletValues[m_indexGrid[(iBase + row) * m_degreesOfFreedom + (iBase + col)]] += val;
-                        m_tripletValues[m_indexGrid[(jBase + row) * m_degreesOfFreedom + (jBase + col)]] += val;
-                        m_tripletValues[m_indexGrid[(iBase + row) * m_degreesOfFreedom + (jBase + col)]] -= val;
-                        m_tripletValues[m_indexGrid[(jBase + row) * m_degreesOfFreedom + (iBase + col)]] -= val;
+                        const float val{ dt2 * spring.K(row, col) };
+
+                        m_tripletValues[iRow_iCol] += val;
+                        m_tripletValues[jRow_jCol] += val;
+                        m_tripletValues[iRow_jCol] -= val;
+                        m_tripletValues[jRow_iCol] -= val;
                     }
                 }
             }
@@ -368,6 +372,7 @@ class MassSpringPlane
             const auto end{ clock::now() };
             const auto elapsed{ std::chrono::duration_cast<std::chrono::microseconds>(end - start).count() };
             std::cout << "updatePhysics() took " << elapsed / 1000.0 << " ms" << std::endl;
+            std::cout << '\n';
         }
 
         void draw() const
@@ -385,7 +390,6 @@ class MassSpringPlane
         int m_degreesOfFreedom{};
         float m_stiffness{ 200.0f };
         Eigen::SparseMatrix<float> m_A;
-        //Eigen::BiCGSTAB<Eigen::SparseMatrix<float>, Eigen::DiagonalPreconditioner<float>> m_solver;
         Eigen::ConjugateGradient<Eigen::SparseMatrix<float>, Eigen::Lower|Eigen::Upper, Eigen::DiagonalPreconditioner<float>> m_solver;
         Eigen::VectorXf m_force;
         Eigen::VectorXf m_velocity;
