@@ -26,6 +26,7 @@ class MassSpringPlane
         {
             const size_t numPointsPerSide{ resolution + 1 };
             m_points.resize(numPointsPerSide * numPointsPerSide);
+            m_degreesOfFreedom = m_points.size() * 3;
 
             // Make mass spring points
             size_t index{ 0 };
@@ -151,7 +152,6 @@ class MassSpringPlane
                 }
             }
 
-            m_degreesOfFreedom = m_points.size() * 3;
             m_A.resize(m_degreesOfFreedom, m_degreesOfFreedom);
             m_force.resize(m_degreesOfFreedom);
             m_velocity.resize(m_degreesOfFreedom);
@@ -288,8 +288,8 @@ class MassSpringPlane
 
         void updatePhysics(float deltaTime)
         {
-            using clock = std::chrono::high_resolution_clock;
-            const auto start{ clock::now() };
+            //using clock = std::chrono::high_resolution_clock;
+            //const auto start{ clock::now() };
 
             std::fill(m_tripletValues.begin(), m_tripletValues.end(), 0.0f);
             m_force.setZero();
@@ -302,12 +302,7 @@ class MassSpringPlane
             }
 
             Physics::getForceFromGravity(m_points, m_force);
-
-            const auto springForcesStart{ clock::now() };
             Physics::getSpringForces(m_springs, m_points, m_force);
-            const auto springForcesEnd{ clock::now() };
-            const auto springForcesElapsed{ std::chrono::duration_cast<std::chrono::microseconds>(springForcesEnd - springForcesStart).count() };
-            std::cout << "springForces took " << springForcesElapsed / 1000.0 << " ms" << std::endl;
 
             constexpr float velocityDampingCoeff{ 3.5f };
             m_force -= velocityDampingCoeff  * m_velocity;
@@ -321,8 +316,6 @@ class MassSpringPlane
                 m_tripletValues[m_indexGrid[i * m_degreesOfFreedom + i]] = massDampingDiagonal;
 
              // Add stiffness contributions per spring (directly to triplets)
-            const auto secondLoopStart{ clock::now() };
-
             const float dt2{ -deltaTime * deltaTime };
             for (size_t i{ 0 }; i < m_springs.size(); ++i)
             {
@@ -351,15 +344,9 @@ class MassSpringPlane
                 }
             }
 
-            const auto secondLoopEnd{ clock::now() };
-            const auto secondLoopElapsed{ std::chrono::duration_cast<std::chrono::microseconds>(secondLoopEnd - secondLoopStart).count() };
-            std::cout << "secondLoop took " << secondLoopElapsed / 1000.0 << " ms" << std::endl;
-
             float* values{ m_A.valuePtr() };
             for (size_t i{ 0 }; i < m_tripletValues.size(); ++i)
                 values[i] = m_tripletValues[i];
-
-            const auto solveStart{ clock::now() };
 
             // I commented this out because right now it's not doing anyting
             // But in the future I might want to call this once every 20 frames or something to keep things stable
@@ -367,17 +354,12 @@ class MassSpringPlane
             m_b = m_velocity + deltaTime * m_force;
             m_vNext = m_solver.solveWithGuess(m_b, m_velocity);
 
-            const auto solveEnd{ clock::now() };
-            const auto solveElapsed{ std::chrono::duration_cast<std::chrono::microseconds>(solveEnd - solveStart).count() };
-            std::cout << "solve took " << solveElapsed / 1000.0 << " ms" << std::endl;
-
             Physics::setNewPoints(m_points, m_vNext, deltaTime);
             updateVBO();
 
-            const auto end{ clock::now() };
-            const auto elapsed{ std::chrono::duration_cast<std::chrono::microseconds>(end - start).count() };
-            std::cout << "updatePhysics() took " << elapsed / 1000.0 << " ms" << std::endl;
-            std::cout << '\n';
+            //const auto end{ clock::now() };
+            //const auto elapsed{ std::chrono::duration_cast<std::chrono::microseconds>(end - start).count() };
+            //std::cout << "updatePhysics() took " << elapsed / 1000.0 << " ms" << std::endl;
         }
 
         void draw() const
