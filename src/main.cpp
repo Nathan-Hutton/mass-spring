@@ -18,18 +18,18 @@
 #include "ShaderHandler.h"
 #include "Input.h"
 #include "CollisionPlane.h"
-#include "MassSpringPlane.h"
+//#include "MassSpringPlane.h"
+#include "TetraObject.h"
 #include "Physics.h"
 
-//int main(int argc, char* argv[])
-int main()
+int main(int argc, char* argv[])
 {
-    //if (argc < 2) // Since I want to just be able to ./main
-    //{
-    //    argv[1] = strdup("../assets/dragon_80k.obj");
-    //    //argv[1] = strdup("../assets/armadillo_50k_tet.obj");
-    //    //return -1;
-    //}
+    if (argc < 2) // Since I want to just be able to ./main
+    {
+        argv[1] = strdup("../assets/dragon_8k_tet");
+        //argv[1] = strdup("../assets/armadillo_50k_tet");
+        //return -1;
+    }
 
     glfwInit();
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
@@ -65,7 +65,8 @@ int main()
     compileShaders();
 
     // Handle objects
-    MassSpringPlane massSpringPlane{ 5.0f, 100 };
+    //MassSpringPlane massSpringPlane{ 5.0f, 100 };
+    TetraObject massSpringObject{argv[1], 1.0f};
     const CollisionPlane collisionPlane{ 10.0f, -8.0f };
 
     // ****************
@@ -88,22 +89,22 @@ int main()
     glUseProgram(mainShader);
     glUniformMatrix4fv(glGetUniformLocation(mainShader, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
 
-    constexpr float fixedDeltaTime{ 1.0f / 60.0f };
-    float accumulator{ 0.0f };
-    GLfloat lastUpdateTime{ static_cast<GLfloat>(glfwGetTime()) };
+    //constexpr float fixedDeltaTime{ 1.0f / 60.0f };
+    //float accumulator{ 0.0f };
+    //GLfloat lastUpdateTime{ static_cast<GLfloat>(glfwGetTime()) };
     while (!glfwWindowShouldClose(window)) 
     {
-        const GLfloat currentTime{ static_cast<GLfloat>(glfwGetTime()) };
-        const GLfloat deltaTime{ currentTime - lastUpdateTime };
-        lastUpdateTime = currentTime;
-        accumulator += deltaTime;
-        accumulator = std::min(accumulator, 0.35f);
+        //const GLfloat currentTime{ static_cast<GLfloat>(glfwGetTime()) };
+        //const GLfloat deltaTime{ currentTime - lastUpdateTime };
+        //lastUpdateTime = currentTime;
+        //accumulator += deltaTime;
+        //accumulator = std::min(accumulator, 0.35f);
 
-        while (accumulator >= fixedDeltaTime)
-        {
-            massSpringPlane.updatePhysics(fixedDeltaTime);
-            accumulator -= fixedDeltaTime;
-        }
+        //while (accumulator >= fixedDeltaTime)
+        //{
+            //massSpringPlane.updatePhysics(fixedDeltaTime);
+            //accumulator -= fixedDeltaTime;
+        //}
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -144,20 +145,18 @@ int main()
         const glm::vec3 lightDir { glm::vec3{lightRotateMatrix * glm::vec4{1.0f, 0.0f, 0.0f, 0.0f}} };
         const glm::vec3 lightDirInViewSpace { glm::normalize(view * glm::vec4(lightDir, 0.0f)) };
 
-        const glm::mat4 model{ 1.0f };
-        const glm::mat4 modelViewTransform { view * model };
-
         // Render object to screen
         glUseProgram(mainShader);
-        glUniformMatrix4fv(glGetUniformLocation(mainShader, "modelView"), 1, GL_FALSE, glm::value_ptr(modelViewTransform));
-        glUniformMatrix4fv(glGetUniformLocation(mainShader, "normalModelView"), 1, GL_FALSE, glm::value_ptr(glm::transpose(glm::inverse(modelViewTransform))));
+        glUniformMatrix4fv(glGetUniformLocation(mainShader, "view"), 1, GL_FALSE, glm::value_ptr(view));
 		glUniform3fv(glGetUniformLocation(mainShader, "lightDir"), 1, glm::value_ptr(lightDirInViewSpace));
+
+        // Render collision plane
         glUniform3fv(glGetUniformLocation(mainShader, "diffuseMaterialColor"), 1, glm::value_ptr(glm::vec3{ 0.0f, 0.5f, 0.0f }));
         collisionPlane.draw();
 
-        // Draw mass-spring plane
-        glUniform3fv(glGetUniformLocation(mainShader, "diffuseMaterialColor"), 1, glm::value_ptr(glm::vec3{ 0.0f, 0.0f, 1.0f }));
-        massSpringPlane.draw();
+        // Render mass-spring objct
+        //glUniform3fv(glGetUniformLocation(mainShader, "diffuseMaterialColor"), 1, glm::value_ptr(glm::vec3{ 0.0f, 0.0f, 1.0f }));
+        //massSpringPlane.draw();
 
         glfwSwapBuffers(window);
         glfwPollEvents();

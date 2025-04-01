@@ -73,11 +73,11 @@ class MassSpringPlane
                             m_points[nextIndex].position.y,
                             m_points[nextIndex].position.z);
 
-                        const Eigen::Vector3f d = pi - pj;
-                        const float len = d.norm();
+                        const Eigen::Vector3f d{ pi - pj };
+                        const float len{ d.norm() };
 
-                        const Eigen::Matrix3f outer = (d / len) * (d / len).transpose();
-                        const Eigen::Matrix3f K = m_stiffness * (Eigen::Matrix3f::Identity() - outer);
+                        const Eigen::Matrix3f outer{ (d / len) * (d / len).transpose() };
+                        const Eigen::Matrix3f K{ m_stiffness * (Eigen::Matrix3f::Identity() - outer) };
                         m_springs.push_back({index, nextIndex, glm::distance(m_points[index].position, m_points[nextIndex].position), m_stiffness, K});
                     }
 
