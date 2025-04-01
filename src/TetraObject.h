@@ -366,10 +366,10 @@ class TetraObject
 
             const Eigen::Vector3f d{ pi - pj };
             const float len{ d.norm() };
-            if (len < 1e-6f) return; // Skip invalid spring
+            if (len < 1e-4f) return; // Skip invalid spring
 
             const Eigen::Matrix3f outer{ (d / len) * (d / len).transpose() };
             const Eigen::Matrix3f K{ m_stiffness * (Eigen::Matrix3f::Identity() - outer) };
-            m_springs.push_back({ i0, i1, glm::distance(m_points[i0].position, m_points[i1].position), m_stiffness, K });
+            m_springs.push_back({ i0, i1, len, m_stiffness, K });
         }
 };
