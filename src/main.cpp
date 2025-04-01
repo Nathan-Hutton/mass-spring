@@ -89,22 +89,23 @@ int main(int argc, char* argv[])
     glUseProgram(mainShader);
     glUniformMatrix4fv(glGetUniformLocation(mainShader, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
 
-    //constexpr float fixedDeltaTime{ 1.0f / 60.0f };
-    //float accumulator{ 0.0f };
-    //GLfloat lastUpdateTime{ static_cast<GLfloat>(glfwGetTime()) };
+    constexpr float fixedDeltaTime{ 1.0f / 15.0f };
+    float accumulator{ 0.0f };
+    GLfloat lastUpdateTime{ static_cast<GLfloat>(glfwGetTime()) };
     while (!glfwWindowShouldClose(window)) 
     {
-        //const GLfloat currentTime{ static_cast<GLfloat>(glfwGetTime()) };
-        //const GLfloat deltaTime{ currentTime - lastUpdateTime };
-        //lastUpdateTime = currentTime;
-        //accumulator += deltaTime;
-        //accumulator = std::min(accumulator, 0.35f);
+        const GLfloat currentTime{ static_cast<GLfloat>(glfwGetTime()) };
+        const GLfloat deltaTime{ currentTime - lastUpdateTime };
+        lastUpdateTime = currentTime;
+        accumulator += deltaTime;
+        accumulator = std::min(accumulator, 0.35f);
 
-        //while (accumulator >= fixedDeltaTime)
-        //{
+        while (accumulator >= fixedDeltaTime)
+        {
             //massSpringPlane.updatePhysics(fixedDeltaTime);
-            //accumulator -= fixedDeltaTime;
-        //}
+            massSpringObject.updatePhysics(fixedDeltaTime);
+            accumulator -= fixedDeltaTime;
+        }
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 

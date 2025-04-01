@@ -56,6 +56,8 @@ class TetraObject
                 m_vertices[i * 3 + 2] = m_points[i].position.z;
             }
 
+            m_degreesOfFreedom = m_points.size() * 3;
+
             // Fill m_springs
             file = std::ifstream{filePath + ".ele"};
             if (!file.is_open())
@@ -130,6 +132,83 @@ class TetraObject
                 m_indices.push_back(static_cast<GLuint>(face[0]));
                 m_indices.push_back(static_cast<GLuint>(face[1]));
                 m_indices.push_back(static_cast<GLuint>(face[2]));
+            }
+
+            m_A.resize(m_degreesOfFreedom, m_degreesOfFreedom);
+            m_force.resize(m_degreesOfFreedom);
+            m_velocity.resize(m_degreesOfFreedom);
+            m_b.resize(m_degreesOfFreedom);
+            m_vNext.resize(m_degreesOfFreedom);
+
+            std::set<std::pair<int, int>> uniqueTripletSet;
+            for (int i{ 0 }; i < m_degreesOfFreedom; ++i)
+                uniqueTripletSet.emplace(i, i);
+
+            for (const Physics::Spring& spring : m_springs)
+            {
+                const int iBase{ 3 * static_cast<int>(spring.i) };
+                const int jBase{ 3 * static_cast<int>(spring.j) };
+
+                for (int row{ 0 }; row < 3; ++row)
+                {
+                    for (int col{ 0 }; col < 3; ++col)
+                    {
+                        uniqueTripletSet.emplace(iBase + row, iBase + col);
+                        uniqueTripletSet.emplace(jBase + row, jBase + col);
+                        uniqueTripletSet.emplace(iBase + row, jBase + col);
+                        uniqueTripletSet.emplace(jBase + row, iBase + col);
+                    }
+                }
+            }
+
+            std::vector<Eigen::Triplet<float>> triplets;
+            triplets.reserve(uniqueTripletSet.size());
+            for (const auto& [row, col] : uniqueTripletSet)
+                triplets.emplace_back(row, col, 0.0f);
+
+            m_A.setFromTriplets(triplets.begin(), triplets.end());
+            m_A.makeCompressed();
+            m_solver.compute(m_A);
+
+            m_tripletValues.resize(triplets.size());
+
+            std::vector<TripletInfo> tripletIndexList;
+            tripletIndexList.reserve(triplets.size());
+            for (size_t i{ 0 }; i < triplets.size(); ++i)
+                tripletIndexList.push_back({ triplets[i].row(), triplets[i].col(), i });
+
+            m_indexGrid.resize(m_degreesOfFreedom * m_degreesOfFreedom, static_cast<size_t>(-1));
+            for (const auto& t : tripletIndexList)
+                m_indexGrid[t.row * m_degreesOfFreedom + t.col] = t.index;
+
+            m_solver.setMaxIterations(50);
+            m_solver.setTolerance(1e-1);
+
+            m_springIndices.clear();
+            m_springIndices.reserve(m_springs.size());
+
+            for (const auto& spring : m_springs)
+            {
+                SpringStiffnessIndices indices;
+
+                for (size_t d{ 0 }; d < 3; ++d)
+                {
+                    const size_t iRow{ 3 * spring.i + d };
+                    const size_t jRow{ 3 * spring.j + d };
+
+                    for (size_t e{ 0 }; e < 3; ++e)
+                    {
+                        const size_t iCol{ 3 * spring.i + e };
+                        const size_t jCol{ 3 * spring.j + e };
+
+                        indices.i_i[d][e] = m_indexGrid[iRow * m_degreesOfFreedom + iCol];
+                        indices.j_j[d][e] = m_indexGrid[jRow * m_degreesOfFreedom + jCol];
+                        indices.i_j[d][e] = m_indexGrid[iRow * m_degreesOfFreedom + jCol];
+                        indices.j_i[d][e] = m_indexGrid[jRow * m_degreesOfFreedom + iCol];
+                    }
+                }
+
+                m_springIndices.push_back(indices);
             }
 
             // Setup VAO
@@ -287,6 +366,7 @@ class TetraObject
 
             const Eigen::Vector3f d{ pi - pj };
             const float len{ d.norm() };
+            if (len < 1e-6f) return; // Skip invalid spring
 
             const Eigen::Matrix3f outer{ (d / len) * (d / len).transpose() };
             const Eigen::Matrix3f K{ m_stiffness * (Eigen::Matrix3f::Identity() - outer) };
