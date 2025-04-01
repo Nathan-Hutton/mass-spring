@@ -59,7 +59,7 @@ class TetraObject
             // Fill m_springs
             file = std::ifstream{filePath + ".ele"};
             if (!file.is_open())
-                std::cerr << "Failed to open node file.\n";
+                std::cerr << "Failed to open ele file.\n";
 
             struct Array3Hash {
                 std::size_t operator()(const std::array<size_t, 3>& arr) const {
@@ -68,6 +68,22 @@ class TetraObject
                     std::size_t h3{ std::hash<size_t>{}(arr[2]) };
                     return h1 ^ (h2 << 1) ^ (h3 << 2);
                 }
+            };
+
+            // When we have a face on the boundary, [a,b,c], as part of tetrahedron, [a,b,c,d],
+            // if a vector from the face to d is in the same direction as the normal, then the winding order is wrong
+            auto fixWinding = [this](const std::array<size_t, 3>& face, size_t d) -> std::array<size_t, 3> {
+                const glm::vec3 a{ m_points[face[0]].position };
+                const glm::vec3 b{ m_points[face[1]].position };
+                const glm::vec3 c{ m_points[face[2]].position };
+                const glm::vec3 dp{ m_points[d].position };
+
+                const glm::vec3 normal{ glm::normalize(glm::cross(b - a, c - a)) };
+                const glm::vec3 toD{ glm::normalize(dp - a) };
+
+                if (glm::dot(normal, toD) > 0.0f)
+                    return { face[0], face[2], face[1] };
+                return face;
             };
 
             // Store faces in sorted index order so duplicates don't have different winding order
@@ -89,10 +105,10 @@ class TetraObject
                 makeSpring(i1, i3);
                 makeSpring(i2, i3);
 
-                std::array<size_t, 3> face1{ i0, i1, i2 };
-                std::array<size_t, 3> face2{ i0, i1, i3 };
-                std::array<size_t, 3> face3{ i0, i2, i3 };
-                std::array<size_t, 3> face4{ i1, i2, i3 };
+                std::array<size_t, 3> face1{ fixWinding({ i0, i1, i2 }, i3) };
+                std::array<size_t, 3> face2{ fixWinding({ i0, i1, i3 }, i2) };
+                std::array<size_t, 3> face3{ fixWinding({ i0, i2, i3 }, i1) };
+                std::array<size_t, 3> face4{ fixWinding({ i1, i2, i3 }, i0) };
                 for (const std::array<size_t, 3>& face : {face1, face2, face3, face4})
                 {
                     std::array<size_t, 3> sortedFace{ face };
