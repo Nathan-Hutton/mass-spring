@@ -66,7 +66,7 @@ int main(int argc, char* argv[])
 
     // Handle objects
     //MassSpringPlane massSpringPlane{ 5.0f, 100 };
-    TetraObject massSpringObject{argv[1], 1.0f};
+    TetraObject massSpringObject{argv[1], 10.0f};
     const CollisionPlane collisionPlane{ 10.0f, -8.0f };
 
     // ****************
@@ -155,8 +155,9 @@ int main(int argc, char* argv[])
         collisionPlane.draw();
 
         // Render mass-spring objct
-        //glUniform3fv(glGetUniformLocation(mainShader, "diffuseMaterialColor"), 1, glm::value_ptr(glm::vec3{ 0.0f, 0.0f, 1.0f }));
+        glUniform3fv(glGetUniformLocation(mainShader, "diffuseMaterialColor"), 1, glm::value_ptr(glm::vec3{ 0.0f, 0.0f, 1.0f }));
         //massSpringPlane.draw();
+        massSpringObject.draw();
 
         glfwSwapBuffers(window);
         glfwPollEvents();

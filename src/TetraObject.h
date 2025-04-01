@@ -2,10 +2,13 @@
 
 #include <fstream>
 #include <sstream>
+#include <unordered_map>
 #include <GL/glew.h>
 #include <array>
 #include <set>
+#include <functional>
 #include <chrono>
+#include <array>
 #include "Physics.h"
 
 struct TripletInfo {
@@ -45,11 +48,31 @@ class TetraObject
                 m_points.push_back({ pos * uniformScalingFactor, glm::vec3{ 0.0f }, false });
             }
 
+            m_vertices.resize(m_points.size() * 3);
+            for (size_t i{ 0 }; i < m_points.size(); ++i)
+            {
+                m_vertices[i * 3] = m_points[i].position.x;
+                m_vertices[i * 3 + 1] = m_points[i].position.y;
+                m_vertices[i * 3 + 2] = m_points[i].position.z;
+            }
+
             // Fill m_springs
             file = std::ifstream{filePath + ".ele"};
             if (!file.is_open())
                 std::cerr << "Failed to open node file.\n";
 
+            struct Array3Hash {
+                std::size_t operator()(const std::array<size_t, 3>& arr) const {
+                    std::size_t h1{ std::hash<size_t>{}(arr[0]) };
+                    std::size_t h2{ std::hash<size_t>{}(arr[1]) };
+                    std::size_t h3{ std::hash<size_t>{}(arr[2]) };
+                    return h1 ^ (h2 << 1) ^ (h3 << 2);
+                }
+            };
+
+            // Store faces in sorted index order so duplicates don't have different winding order
+            // Key is the count and the unsorted face so that I can retrieve them later
+            std::unordered_map<std::array<size_t, 3>, std::pair<int, std::array<size_t, 3>>, Array3Hash> faceCounts;
             std::getline(file, line);
             while (std::getline(file, line))
             {
@@ -65,7 +88,56 @@ class TetraObject
                 makeSpring(i1, i2);
                 makeSpring(i1, i3);
                 makeSpring(i2, i3);
+
+                std::array<size_t, 3> face1{ i0, i1, i2 };
+                std::array<size_t, 3> face2{ i0, i1, i3 };
+                std::array<size_t, 3> face3{ i0, i2, i3 };
+                std::array<size_t, 3> face4{ i1, i2, i3 };
+                for (const std::array<size_t, 3>& face : {face1, face2, face3, face4})
+                {
+                    std::array<size_t, 3> sortedFace{ face };
+                    std::sort(sortedFace.begin(), sortedFace.end());
+
+                    auto it{ faceCounts.find(sortedFace) };
+                    if (it == faceCounts.end())
+                        faceCounts[sortedFace] = { 1, face };
+                    else
+                        ++it->second.first;
+                }
             }
+
+            for (const auto& [_, value] : faceCounts)
+            {
+                if (value.first != 1) continue;
+
+                std::array<size_t, 3> face{ value.second };
+                m_indices.push_back(static_cast<GLuint>(face[0]));
+                m_indices.push_back(static_cast<GLuint>(face[1]));
+                m_indices.push_back(static_cast<GLuint>(face[2]));
+            }
+
+            // Setup VAO
+            glGenVertexArrays(1, &m_VAO);
+
+            glBindVertexArray(m_VAO);
+
+            glGenBuffers(1, &m_EBO);
+
+            glGenBuffers(1, &m_VBO);
+
+            glBindBuffer(GL_ARRAY_BUFFER, m_VBO);
+            glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * m_vertices.size(), m_vertices.data(), GL_STATIC_DRAW);
+
+            // Set vertex attributes
+            glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), (void*)0); // Vertex positions
+            glEnableVertexAttribArray(0);
+
+            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_EBO);
+            glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(GLuint) * m_indices.size(), m_indices.data(), GL_STATIC_DRAW);
+
+            glBindBuffer(GL_ARRAY_BUFFER, 0);
+            glBindVertexArray(0);
+            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
         }
 
         void updateVBO()
