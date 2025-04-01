@@ -5,6 +5,7 @@
 #include <unordered_map>
 #include <GL/glew.h>
 #include <array>
+#include <unordered_set>
 #include <set>
 #include <functional>
 #include <chrono>
@@ -29,7 +30,9 @@ class TetraObject
     public:
         TetraObject(const std::string& filePath, float uniformScalingFactor)
         {
-            // fill m_points
+            // *************
+            // Fill m_points
+            // *************
             std::ifstream file{filePath + ".node"};
             if (!file.is_open())
                 std::cerr << "Failed to open node file.\n";
@@ -58,19 +61,12 @@ class TetraObject
 
             m_degreesOfFreedom = m_points.size() * 3;
 
+            // **************
             // Fill m_springs
+            // **************
             file = std::ifstream{filePath + ".ele"};
             if (!file.is_open())
                 std::cerr << "Failed to open ele file.\n";
-
-            struct Array3Hash {
-                std::size_t operator()(const std::array<size_t, 3>& arr) const {
-                    std::size_t h1{ std::hash<size_t>{}(arr[0]) };
-                    std::size_t h2{ std::hash<size_t>{}(arr[1]) };
-                    std::size_t h3{ std::hash<size_t>{}(arr[2]) };
-                    return h1 ^ (h2 << 1) ^ (h3 << 2);
-                }
-            };
 
             // When we have a face on the boundary, [a,b,c], as part of tetrahedron, [a,b,c,d],
             // if a vector from the face to d is in the same direction as the normal, then the winding order is wrong
@@ -88,9 +84,39 @@ class TetraObject
                 return face;
             };
 
+            // This is here so that we only make springs out of edges once, not on the duplicates
+            struct Edge 
+            {
+                size_t a, b;
+
+                Edge(size_t i, size_t j) : a{ std::min(i, j) }, b{ std::max(i, j) } {}
+
+                bool operator==(const Edge& other) const
+                {
+                    return a == other.a && b == other.b;
+                }
+            };
+            struct EdgeHash
+            {
+                std::size_t operator()(const Edge& e) const
+                {
+                    return std::hash<size_t>()(e.a) ^ std::hash<size_t>()(e.b << 1);
+                }
+            };
+            std::unordered_set<Edge, EdgeHash> uniqueEdges;
+
             // Store faces in sorted index order so duplicates don't have different winding order
             // Key is the count and the unsorted face so that I can retrieve them later
+            struct Array3Hash {
+                std::size_t operator()(const std::array<size_t, 3>& arr) const {
+                    std::size_t h1{ std::hash<size_t>{}(arr[0]) };
+                    std::size_t h2{ std::hash<size_t>{}(arr[1]) };
+                    std::size_t h3{ std::hash<size_t>{}(arr[2]) };
+                    return h1 ^ (h2 << 1) ^ (h3 << 2);
+                }
+            };
             std::unordered_map<std::array<size_t, 3>, std::pair<int, std::array<size_t, 3>>, Array3Hash> faceCounts;
+
             std::getline(file, line);
             while (std::getline(file, line))
             {
@@ -100,12 +126,26 @@ class TetraObject
                 size_t index, i0, i1, i2, i3;
                 lineStream >> index >> i0 >> i1 >> i2 >> i3;
 
-                makeSpring(i0, i1);
-                makeSpring(i0, i2);
-                makeSpring(i0, i3);
-                makeSpring(i1, i2);
-                makeSpring(i1, i3);
-                makeSpring(i2, i3);
+                Edge e0{i0, i1};
+                Edge e1{i0, i2};
+                Edge e2{i0, i3};
+                Edge e3{i1, i2};
+                Edge e4{i1, i3};
+                Edge e5{i2, i3};
+
+                // Make sure edges are unique before making springs for them
+                if (uniqueEdges.insert(e0).second)
+                    makeSpring(i0, i1);
+                if (uniqueEdges.insert(e1).second)
+                    makeSpring(i0, i2);
+                if (uniqueEdges.insert(e2).second)
+                    makeSpring(i0, i3);
+                if (uniqueEdges.insert(e3).second)
+                    makeSpring(i1, i2);
+                if (uniqueEdges.insert(e4).second)
+                    makeSpring(i1, i3);
+                if (uniqueEdges.insert(e5).second)
+                    makeSpring(i2, i3);
 
                 std::array<size_t, 3> face1{ fixWinding({ i0, i1, i2 }, i3) };
                 std::array<size_t, 3> face2{ fixWinding({ i0, i1, i3 }, i2) };
