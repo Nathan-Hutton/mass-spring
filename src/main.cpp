@@ -66,8 +66,10 @@ int main(int argc, char* argv[])
 
     // Handle objects
     //MassSpringPlane massSpringPlane{ 5.0f, 100 };
-    TetraObject massSpringObject{argv[1], 10.0f};
-    const CollisionPlane collisionPlane{ 10.0f, -6.0f };
+    glm::mat4 rotation = glm::rotate(glm::mat4{ 1.0f }, glm::radians(90.0f), glm::vec3{ 0.0f, 1.0f, 0.0f });
+    rotation = glm::rotate(rotation, glm::radians(-90.0f), glm::vec3{ 1.0f, 0.0f, 0.0f });
+    TetraObject massSpringObject{argv[1], 10.0f, rotation, true };
+    const CollisionPlane collisionPlane{ 10.0f, -10.0f };
 
     // ****************
     // Scene properties
@@ -156,7 +158,7 @@ int main(int argc, char* argv[])
         collisionPlane.draw();
 
         // Render mass-spring objct
-        glUniform3fv(glGetUniformLocation(mainShader, "diffuseMaterialColor"), 1, glm::value_ptr(glm::vec3{ 0.0f, 0.0f, 1.0f }));
+        glUniform3fv(glGetUniformLocation(mainShader, "diffuseMaterialColor"), 1, glm::value_ptr(glm::vec3{ 0.0f, 0.7f, 1.0f }));
         //massSpringPlane.draw();
         massSpringObject.draw();
 

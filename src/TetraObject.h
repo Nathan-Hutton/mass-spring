@@ -28,7 +28,7 @@ struct SpringStiffnessIndices {
 class TetraObject
 {
     public:
-        TetraObject(const std::string& filePath, float uniformScalingFactor)
+        TetraObject(const std::string& filePath, float uniformScalingFactor, const glm::mat4& rotation, bool fixingPoints=false)
         {
             // *************
             // Fill m_points
@@ -39,6 +39,7 @@ class TetraObject
 
             std::string line{};
             std::getline(file, line);
+            size_t counter{ 0 };
             while (std::getline(file, line))
             {
                 if (line[0] == '#') continue;
@@ -48,7 +49,10 @@ class TetraObject
                 int index;
                 lineStream >> index >> pos.x >> pos.y >> pos.z;
 
-                m_points.push_back({ pos * uniformScalingFactor, glm::vec3{ 0.0f }, false });
+                bool fixed{ false };
+                if (fixingPoints && (counter++ % 500 == 0))
+                    fixed = true;
+                m_points.push_back({ glm::vec3{ rotation * glm::vec4{ pos * uniformScalingFactor, 1.0f } }, glm::vec3{ 0.0f }, fixed });
             }
 
             m_vertices.resize(m_points.size() * 3);
@@ -372,7 +376,7 @@ class TetraObject
         std::vector<GLfloat> m_vertices{};
         std::vector<GLuint> m_indices{};
         int m_degreesOfFreedom{};
-        float m_stiffness{ 1200.0f };
+        float m_stiffness{ 1600.0f };
         Eigen::SparseMatrix<float> m_A;
         Eigen::SimplicialLDLT<Eigen::SparseMatrix<float>> m_solver;
         Eigen::VectorXf m_force;
