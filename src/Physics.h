@@ -41,10 +41,21 @@ struct MassPoint {
                 continue;
 
             if (points[i].position.y < -10.0f)
-                force[3 * i + 1] = 200;
+                force[3 * i + 1] += 200;
             else
                 force[3 * i + 1] -= 9.81f;
         }
+    }
+
+    // Apply a force to the first vertex in a selected triangle
+    void getForceFromSelectedTriangle(const MassPoint& point, size_t pointIndex, Eigen::VectorXf& force, const glm::vec3& externalForce)
+    {
+        if (point.fixed)
+            return;
+
+        force[3 * pointIndex] += externalForce.x;
+        force[3 * pointIndex + 1] += externalForce.y;
+        force[3 * pointIndex + 2] += externalForce.z;
     }
 
     void getSpringForces(std::vector<Spring>& springs, const std::vector<MassPoint>& points, Eigen::VectorXf& force)

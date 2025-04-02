@@ -17,8 +17,8 @@
 
 #include "ShaderHandler.h"
 #include "Input.h"
+#include "PickingTexture.h"
 #include "CollisionPlane.h"
-//#include "MassSpringPlane.h"
 #include "TetraObject.h"
 #include "Physics.h"
 
@@ -68,8 +68,9 @@ int main(int argc, char* argv[])
     //MassSpringPlane massSpringPlane{ 5.0f, 100 };
     glm::mat4 rotation = glm::rotate(glm::mat4{ 1.0f }, glm::radians(90.0f), glm::vec3{ 0.0f, 1.0f, 0.0f });
     rotation = glm::rotate(rotation, glm::radians(-90.0f), glm::vec3{ 1.0f, 0.0f, 0.0f });
-    TetraObject massSpringObject{argv[1], 10.0f, rotation, true };
+    TetraObject massSpringObject{argv[1], 10.0f, rotation, false };
     const CollisionPlane collisionPlane{ 10.0f, -10.0f };
+    PickingTexture pickingTexture{ mode->width, mode->height };
 
     // ****************
     // Scene properties
@@ -94,21 +95,10 @@ int main(int argc, char* argv[])
     constexpr float fixedDeltaTime{ 1.0f / 60.0f };
     float accumulator{ 0.0f };
     GLfloat lastUpdateTime{ static_cast<GLfloat>(glfwGetTime()) };
+
+    GLuint selectedTriangle{ 0xFFFFFFFFu };
     while (!glfwWindowShouldClose(window)) 
     {
-        const GLfloat currentTime{ static_cast<GLfloat>(glfwGetTime()) };
-        const GLfloat deltaTime{ currentTime - lastUpdateTime };
-        lastUpdateTime = currentTime;
-        accumulator += deltaTime;
-        accumulator = std::min(accumulator, 0.35f);
-
-        while (accumulator >= fixedDeltaTime)
-        {
-            //massSpringPlane.updatePhysics(fixedDeltaTime);
-            massSpringObject.updatePhysics(fixedDeltaTime);
-            accumulator -= fixedDeltaTime;
-        }
-
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         // Input
@@ -147,6 +137,66 @@ int main(int argc, char* argv[])
 		lightRotateMatrix = glm::rotate(lightRotateMatrix, glm::radians(yLightRotateAmount), glm::vec3(0.0f, 1.0f, 0.0f));
         const glm::vec3 lightDir { glm::vec3{lightRotateMatrix * glm::vec4{1.0f, 0.0f, 0.0f, 0.0f}} };
         const glm::vec3 lightDirInViewSpace { glm::normalize(view * glm::vec4(lightDir, 0.0f)) };
+
+        // Get selected triangle with mouse input
+        bool isTryingToPickTriangle{ processMouseInputIsTryingToPick(window, selectedTriangle) };
+        if (isTryingToPickTriangle)
+        {
+            pickingTexture.bind();
+            glViewport(0, 0, mode->width, mode->height);
+            glClear(GL_DEPTH_BUFFER_BIT);
+            GLuint clearColor[] { 0, 0, 0xFFFFFFFFu }; // Doing this so that I can tell if I've selected the background instead of the object
+            glClearBufferuiv(GL_COLOR, 0, clearColor);
+
+            // Render info about the object to a framebuffer so we can see which triangle we're clicking on
+            glUseProgram(pickingShader);
+            glUniformMatrix4fv(glGetUniformLocation(pickingShader, "mvp"), 1, GL_FALSE, glm::value_ptr(projection * view));
+            glUniform1ui(glGetUniformLocation(pickingShader, "objectIndex"), 1);
+            massSpringObject.draw();
+
+            pickingTexture.unbind();
+            glViewport(0, 0, mode->width, mode->height);
+
+            // Figure out which triangle we're clicking
+            int xCursorPosPicking;
+            int yCursorPosPicking;
+            processMouseInputPickingControls(window, xCursorPosPicking, yCursorPosPicking);
+            PickingTexture::PixelInfo pixel{ pickingTexture.readPixel(xCursorPosPicking, mode->height - yCursorPosPicking - 1) };
+            selectedTriangle = pixel.primitiveID;
+        }
+
+        const GLfloat currentTime{ static_cast<GLfloat>(glfwGetTime()) };
+        const GLfloat deltaTime{ currentTime - lastUpdateTime };
+        lastUpdateTime = currentTime;
+        accumulator += deltaTime;
+        accumulator = std::min(accumulator, 0.35f);
+
+        while (accumulator >= fixedDeltaTime)
+        {
+            massSpringObject.setForceToZero();
+            if (selectedTriangle != 0xFFFFFFFFu)
+            {
+                constexpr GLfloat forceMagnitude{ 1000.0f };
+                const glm::vec3 forceWorldSpace{ processKeyboardInputForceVec(window) * forceMagnitude };
+                massSpringObject.applyForceFromMouse(selectedTriangle, forceWorldSpace);
+            }
+
+            massSpringObject.updatePhysics(fixedDeltaTime);
+            accumulator -= fixedDeltaTime;
+        }
+
+        // Render selected triangle
+        if (selectedTriangle != 0xFFFFFFFFu)
+        {
+            // Render selected triangle a different color
+            glEnable(GL_POLYGON_OFFSET_FILL); // This basically pushes it ahead of the triangle that will be rendered in the normal render pass
+            glPolygonOffset(-1.0f, -1.0f);
+            glUseProgram(highlightShader);
+            glUniform1ui(glGetUniformLocation(highlightShader, "selectedTriangle"), selectedTriangle);
+            glUniformMatrix4fv(glGetUniformLocation(highlightShader, "mvp"), 1, GL_FALSE, glm::value_ptr(projection * view));
+            massSpringObject.draw();
+            glDisable(GL_POLYGON_OFFSET_FILL);
+        }
 
         // Render object to screen
         glUseProgram(mainShader);

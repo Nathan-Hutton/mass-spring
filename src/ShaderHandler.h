@@ -4,6 +4,8 @@
 #include <vector>
 
 GLuint mainShader;
+GLuint pickingShader;
+GLuint highlightShader;
 
 std::string readFile(const std::string& filePath)
 {
@@ -103,4 +105,6 @@ void compileShader(GLuint& shaderProgram, const std::vector<std::string>& shader
 void compileShaders()
 {
     compileShader(mainShader, std::vector<std::string>{"../shaders/shader.vert", "../shaders/shader.frag", "../shaders/shader.geom"});
+    compileShader(pickingShader, std::vector<std::string>{"../shaders/picking.vert", "../shaders/picking.frag"});
+    compileShader(highlightShader, std::vector<std::string>{"../shaders/highlight.vert", "../shaders/highlight.frag"});
 }

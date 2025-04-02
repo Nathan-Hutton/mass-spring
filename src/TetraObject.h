@@ -289,13 +289,22 @@ class TetraObject
             glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(GLfloat) * m_vertices.size(), m_vertices.data());
         }
 
+        void setForceToZero()
+        {
+            m_force.setZero();
+        }
+
+        void applyForceFromMouse(GLuint selectedTriangle, const glm::vec3& externalForce)
+        {
+            Physics::getForceFromSelectedTriangle(m_points[m_indices[selectedTriangle * 3] / 3], m_indices[selectedTriangle * 3] / 3, m_force, externalForce);
+        }
+
         void updatePhysics(float deltaTime)
         {
             //using clock = std::chrono::high_resolution_clock;
             //const auto start{ clock::now() };
 
             std::fill(m_tripletValues.begin(), m_tripletValues.end(), 0.0f);
-            m_force.setZero();
 
             for (size_t i{ 0 }; i < m_points.size(); ++i) {
                 m_velocity.segment<3>(3 * i) = Eigen::Vector3f(
