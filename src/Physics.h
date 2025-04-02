@@ -40,7 +40,10 @@ struct MassPoint {
             if (points[i].fixed)
                 continue;
 
-            force[3 * i + 1] -= 9.81f;
+            if (points[i].position.y < -6.0f)
+                force[3 * i + 1] = 200;
+            else
+                force[3 * i + 1] -= 9.81f;
         }
     }
 

@@ -67,7 +67,7 @@ int main(int argc, char* argv[])
     // Handle objects
     //MassSpringPlane massSpringPlane{ 5.0f, 100 };
     TetraObject massSpringObject{argv[1], 10.0f};
-    const CollisionPlane collisionPlane{ 10.0f, -8.0f };
+    const CollisionPlane collisionPlane{ 10.0f, -6.0f };
 
     // ****************
     // Scene properties
@@ -89,7 +89,7 @@ int main(int argc, char* argv[])
     glUseProgram(mainShader);
     glUniformMatrix4fv(glGetUniformLocation(mainShader, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
 
-    constexpr float fixedDeltaTime{ 1.0f / 120.0f };
+    constexpr float fixedDeltaTime{ 1.0f / 60.0f };
     float accumulator{ 0.0f };
     GLfloat lastUpdateTime{ static_cast<GLfloat>(glfwGetTime()) };
     while (!glfwWindowShouldClose(window)) 

@@ -208,7 +208,7 @@ class TetraObject
 
             m_A.setFromTriplets(triplets.begin(), triplets.end());
             m_A.makeCompressed();
-            m_solver.compute(m_A);
+            m_solver.analyzePattern(m_A);
 
             m_tripletValues.resize(triplets.size());
 
@@ -220,9 +220,6 @@ class TetraObject
             m_indexGrid.resize(m_degreesOfFreedom * m_degreesOfFreedom, static_cast<size_t>(-1));
             for (const auto& t : tripletIndexList)
                 m_indexGrid[t.row * m_degreesOfFreedom + t.col] = t.index;
-
-            m_solver.setMaxIterations(50);
-            m_solver.setTolerance(1e-1);
 
             m_springIndices.clear();
             m_springIndices.reserve(m_springs.size());
@@ -350,11 +347,9 @@ class TetraObject
             for (size_t i{ 0 }; i < m_tripletValues.size(); ++i)
                 values[i] = m_tripletValues[i];
 
-            // I commented this out because right now it's not doing anyting
-            // But in the future I might want to call this once every 20 frames or something to keep things stable
             //m_solver.factorize(m_A);
             m_b = m_velocity + deltaTime * m_force;
-            m_vNext = m_solver.solveWithGuess(m_b, m_velocity);
+            m_vNext = m_solver.solve(m_b);
 
             Physics::setNewPoints(m_points, m_vNext, deltaTime);
             updateVBO();
@@ -377,9 +372,9 @@ class TetraObject
         std::vector<GLfloat> m_vertices{};
         std::vector<GLuint> m_indices{};
         int m_degreesOfFreedom{};
-        float m_stiffness{ 200.0f };
+        float m_stiffness{ 1200.0f };
         Eigen::SparseMatrix<float> m_A;
-        Eigen::ConjugateGradient<Eigen::SparseMatrix<float>, Eigen::Lower|Eigen::Upper, Eigen::DiagonalPreconditioner<float>> m_solver;
+        Eigen::SimplicialLDLT<Eigen::SparseMatrix<float>> m_solver;
         Eigen::VectorXf m_force;
         Eigen::VectorXf m_velocity;
         Eigen::VectorXf m_b;
