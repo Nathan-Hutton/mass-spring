@@ -48,8 +48,10 @@ struct MassPoint {
     }
 
     // Apply a force to the first vertex in a selected triangle
-    void getForceFromSelectedTriangle(const MassPoint& point, size_t pointIndex, Eigen::VectorXf& force, const glm::vec3& externalForce)
+    void getForceFromSelectedTriangle(MassPoint& point, size_t pointIndex, Eigen::VectorXf& force, const glm::vec3& externalForce)
     {
+        //point.fixed = true;
+        //return;
         if (point.fixed)
             return;
 

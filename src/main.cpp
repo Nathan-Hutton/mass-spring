@@ -174,9 +174,10 @@ int main(int argc, char* argv[])
         while (accumulator >= fixedDeltaTime)
         {
             massSpringObject.setForceToZero();
+
             if (selectedTriangle != 0xFFFFFFFFu)
             {
-                constexpr GLfloat forceMagnitude{ 1000.0f };
+                constexpr GLfloat forceMagnitude{ 10000.0f };
                 const glm::vec3 forceWorldSpace{ processKeyboardInputForceVec(window) * forceMagnitude };
                 massSpringObject.applyForceFromMouse(selectedTriangle, forceWorldSpace);
             }

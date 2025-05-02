@@ -262,7 +262,7 @@ class TetraObject
             glGenBuffers(1, &m_VBO);
 
             glBindBuffer(GL_ARRAY_BUFFER, m_VBO);
-            glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * m_vertices.size(), m_vertices.data(), GL_STATIC_DRAW);
+            glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat) * m_vertices.size(), m_vertices.data(), GL_DYNAMIC_DRAW);
 
             // Set vertex attributes
             glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), (void*)0); // Vertex positions
@@ -296,7 +296,7 @@ class TetraObject
 
         void applyForceFromMouse(GLuint selectedTriangle, const glm::vec3& externalForce)
         {
-            Physics::getForceFromSelectedTriangle(m_points[m_indices[selectedTriangle * 3] / 3], m_indices[selectedTriangle * 3] / 3, m_force, externalForce);
+            Physics::getForceFromSelectedTriangle(m_points[m_indices[selectedTriangle * 3]], m_indices[selectedTriangle * 3], m_force, externalForce);
         }
 
         void updatePhysics(float deltaTime)
