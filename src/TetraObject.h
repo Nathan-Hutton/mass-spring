@@ -335,9 +335,9 @@ class TetraObject
                 if (m_points[spring.i].fixed && m_points[spring.j].fixed)
                     continue;
 
-                const float dx = m_points[spring.i].position.x - m_points[spring.j].position.x;
-                const float dy = m_points[spring.i].position.y - m_points[spring.j].position.y;
-                const float dz = m_points[spring.i].position.z - m_points[spring.j].position.z;
+                const float dx{ m_points[spring.i].position.x - m_points[spring.j].position.x };
+                const float dy{ m_points[spring.i].position.y - m_points[spring.j].position.y };
+                const float dz{ m_points[spring.i].position.z - m_points[spring.j].position.z };
                 const float len2{ dx*dx + dy*dy + dz*dz };
                 if (len2 < 1e-10f) continue;
 
@@ -365,7 +365,6 @@ class TetraObject
             m_vNext = m_solver.solve(m_b);
 
             Physics::setNewPoints(m_points, m_vNext, deltaTime);
-            updateVBO();
 
             //const auto end{ clock::now() };
             //const auto elapsed{ std::chrono::duration_cast<std::chrono::microseconds>(end - start).count() };

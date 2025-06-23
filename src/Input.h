@@ -1,6 +1,5 @@
 #pragma once
 
-
 void processKeyboardInputExit(GLFWwindow* window)
 {
 

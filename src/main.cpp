@@ -66,7 +66,7 @@ int main(int argc, char* argv[])
 
     // Handle objects
     //MassSpringPlane massSpringPlane{ 5.0f, 100 };
-    glm::mat4 rotation = glm::rotate(glm::mat4{ 1.0f }, glm::radians(90.0f), glm::vec3{ 0.0f, 1.0f, 0.0f });
+    glm::mat4 rotation{ glm::rotate(glm::mat4{ 1.0f }, glm::radians(90.0f), glm::vec3{ 0.0f, 1.0f, 0.0f }) };
     rotation = glm::rotate(rotation, glm::radians(-90.0f), glm::vec3{ 1.0f, 0.0f, 0.0f });
     TetraObject massSpringObject{argv[1], 10.0f, rotation, false };
     const CollisionPlane collisionPlane{ 10.0f, -10.0f };
@@ -185,6 +185,7 @@ int main(int argc, char* argv[])
             massSpringObject.updatePhysics(fixedDeltaTime);
             accumulator -= fixedDeltaTime;
         }
+        massSpringObject.updateVBO();
 
         // Render selected triangle
         if (selectedTriangle != 0xFFFFFFFFu)
